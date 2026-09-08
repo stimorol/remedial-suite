@@ -1,0 +1,2677 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學習扶助智慧整合平台 - 測驗分析與課程日誌生成器</title>
+    
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#1a365d',
+                            800: '#0f2942',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- 引入 FontAwesome 圖標庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 引入 html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+        }
+
+        /* 預覽區 A4 紙張樣式 (210mm x 297mm) */
+        .a4-paper {
+            background: white;
+            width: 210mm; 
+            height: 297mm; 
+            margin: 0 auto 30px auto; 
+            padding: 15mm 15mm; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+            position: relative;
+            box-sizing: border-box;
+            overflow: hidden; 
+            flex-shrink: 0;
+            color: #111827;
+        }
+
+        /* 官方公務表格樣式 */
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1.5px solid black;
+            font-size: 13px;
+            margin-bottom: 0;
+            table-layout: fixed; 
+        }
+        
+        .preview-table th, .preview-table td {
+            border: 1px solid black;
+            padding: 6px 4px;
+            vertical-align: middle;
+            text-align: center;
+            word-wrap: break-word; 
+            overflow-wrap: break-word;
+            white-space: normal;
+            position: relative; 
+            z-index: 10;
+            line-height: 1.4;
+        }
+
+        .preview-table thead td {
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .header-nowrap {
+            white-space: nowrap !important;
+            overflow: visible !important; 
+        }
+
+        .text-left-align {
+            text-align: left !important;
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+            line-height: 1.45 !important;
+        }
+
+        .bg-gray-field {
+            background-color: #e5e7eb !important;
+            font-weight: bold;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            z-index: 0; 
+        }
+
+        /* 滾動條美化 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(107, 114, 128, 0.8);
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+        }
+        .dark input[type="date"]::-webkit-calendar-picker-indicator,
+        .dark input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: brightness(0) invert(1);
+            opacity: 0.9;
+            cursor: pointer;
+        }
+        .dark input[type="date"]::-webkit-calendar-picker-indicator:hover,
+        .dark input[type="time"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
+
+        /* 介面字體大小切換 (小、中、大) */
+        html.font-size-sm { font-size: 14px; }
+        html.font-size-md { font-size: 16px; }
+        html.font-size-lg { font-size: 18px; }
+
+        .font-size-sm .text-xs { font-size: 0.8rem; }
+        .font-size-sm .text-sm { font-size: 0.9rem; }
+        .font-size-sm .text-base { font-size: 1rem; }
+
+        .font-size-md .text-xs { font-size: 0.925rem; }
+        .font-size-md .text-sm { font-size: 1.05rem; }
+        .font-size-md .text-base { font-size: 1.15rem; }
+
+        .font-size-lg .text-xs { font-size: 1.075rem; }
+        .font-size-lg .text-sm { font-size: 1.2rem; }
+        .font-size-lg .text-base { font-size: 1.35rem; }
+
+        /* A4 紙張預覽區維持精確公務尺寸，不受外部介面縮放干擾 */
+        .a4-paper, .a4-paper * {
+            font-size: 13px;
+        }
+        .a4-paper thead td, .a4-paper .preview-table thead td {
+            font-size: 12px !important;
+        }
+        .a4-paper .preview-table td span.text-xs {
+            font-size: 11px !important;
+        }
+        .a4-paper .text-xl {
+            font-size: 20px !important;
+        }
+        .a4-paper .text-2xl {
+            font-size: 24px !important;
+        }
+
+        /* PDF 暫存區 */
+        #pdf-staging-area {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: white; z-index: 99990; overflow-y: auto; display: none; 
+        }
+        #pdf-content-wrapper { width: 210mm; margin: 0 auto; background: white; }
+        #pdf-staging-area .a4-paper { margin: 0 !important; box-shadow: none !important; border: none !important; page-break-after: always; }
+        #pdf-staging-area .a4-paper:last-child { page-break-after: avoid; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 flex flex-col h-screen overflow-hidden transition-colors duration-200">
+
+    <!-- ======================= 頂部整合導覽列 ======================= -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 md:px-5 py-2.5 shadow-sm z-30 shrink-0">
+        <div class="flex flex-wrap items-center justify-between gap-2.5">
+            <!-- 左側 Logo 與標題 -->
+            <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-500 flex items-center justify-center text-white shadow-sm shrink-0">
+                    <i class="fas fa-graduation-cap text-base"></i>
+                </div>
+                <div>
+                    <h1 class="text-base md:text-lg font-bold text-gray-900 dark:text-white flex items-center gap-1.5 leading-tight">
+                        學習扶助智慧整合平台
+                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">整合版</span>
+                    </h1>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400 hidden sm:flex items-center gap-1.5">
+                        <span>測驗報告分析</span>
+                        <i class="fas fa-chevron-right text-[8px] text-gray-400 dark:text-gray-500"></i>
+                        <span>教學目標重組</span>
+                        <i class="fas fa-chevron-right text-[8px] text-gray-400 dark:text-gray-500"></i>
+                        <span>課程日誌規劃與 A4 PDF 產出</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- 中間：步驟切換頁籤 (Tab Buttons) -->
+            <div class="flex items-center bg-gray-100 dark:bg-gray-900 p-1 rounded-xl border border-gray-200 dark:border-gray-700 order-3 md:order-2 w-full md:w-auto justify-center">
+                <button id="tab-btn-analysis" onclick="switchMainTab('analysis')" class="flex-1 md:flex-initial px-4 py-2 text-xs md:text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 bg-blue-600 text-white shadow-sm">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>步驟 1：測驗診斷分析</span>
+                </button>
+                <button id="tab-btn-planner" onclick="switchMainTab('planner')" class="flex-1 md:flex-initial px-4 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>步驟 2：課程規劃與日誌</span>
+                </button>
+            </div>
+
+            <!-- 右側操作：字體切換與深淺色切換 -->
+            <div class="flex items-center space-x-2 order-2 md:order-3 ml-auto md:ml-0">
+                <!-- 字體小/中/大切換 -->
+                <div class="flex items-center bg-gray-100 dark:bg-gray-900 rounded-xl p-0.5 border border-gray-200 dark:border-gray-700 shadow-xs">
+                    <span class="text-xs font-semibold px-2 text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                        <i class="fas fa-font text-xs"></i>
+                        <span class="hidden lg:inline text-[11px]">字體:</span>
+                    </span>
+                    <button onclick="setFontSize('sm')" id="btn-font-sm" class="px-2.5 py-1 text-xs font-semibold rounded-lg text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition" title="緊湊/小字體">小</button>
+                    <button onclick="setFontSize('md')" id="btn-font-md" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-xs transition" title="標準/中字體 (預設推薦)">中</button>
+                    <button onclick="setFontSize('lg')" id="btn-font-lg" class="px-2.5 py-1 text-xs font-semibold rounded-lg text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition" title="清晰/大字體">大</button>
+                </div>
+
+                <!-- 深淺色切換 -->
+                <button onclick="toggleTheme()" class="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-gray-100 dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-yellow-400 flex items-center justify-center transition shadow-xs border border-gray-200 dark:border-gray-700" title="切換深淺色外觀">
+                    <i id="theme-icon" class="fas fa-sun text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ======================= 訊息彈窗 Modal ======================= -->
+    <div id="custom-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50 transition-opacity">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 max-w-sm w-full shadow-2xl transition-all scale-100">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2" id="modal-title">提示</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-6 text-sm leading-relaxed" id="modal-message"></p>
+            <div class="flex justify-end gap-3">
+                <button id="modal-cancel" onclick="closeModal()" class="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition">取消</button>
+                <button id="modal-confirm" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition shadow-md">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================= 載入中遮罩 ======================= -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center text-white">
+        <div class="animate-spin rounded-full h-14 w-14 border-4 border-white/20 border-t-blue-500 mb-4"></div>
+        <div class="text-lg font-bold">正在處理中...</div>
+        <div class="text-sm text-gray-300 mt-2" id="loading-text">請稍候</div>
+    </div>
+
+    <!-- PDF 暫存區 -->
+    <div id="pdf-staging-area">
+        <div id="pdf-content-wrapper"></div>
+    </div>
+
+    <!-- ======================= 主內容區域 ======================= -->
+    <main class="flex-1 overflow-hidden relative">
+
+        <!-- ********************** TAB 1: 測驗報告診斷分析 (Remedial Tool) ********************** -->
+        <div id="view-analysis" class="h-full overflow-y-auto p-4 md:p-6 custom-scrollbar">
+            <div class="max-w-5xl mx-auto space-y-6 pb-20">
+
+                <!-- 步驟 1-1：上傳與設定 -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center justify-between pb-3 mb-4 border-b border-gray-100 dark:border-gray-700">
+                        <h2 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs">1</span>
+                            匯入科技化評量 CSV 檔案
+                        </h2>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">支援科技化評量系統「班級學生未通過學習內容報告」</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- 科目選擇 -->
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">科目類別</label>
+                            <select id="subjectSelect" class="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="math">數學科 (Math)</option>
+                                <option value="chinese">國語科 (Chinese)</option>
+                                <option value="english">英語科 (English)</option>
+                            </select>
+                        </div>
+
+                        <!-- 編碼選擇 -->
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">文字編碼 (若出現亂碼請切換)</label>
+                            <div class="flex items-center space-x-4 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm">
+                                <label class="flex items-center space-x-1.5 cursor-pointer">
+                                    <input type="radio" name="encoding" value="Big5" checked class="text-blue-600">
+                                    <span class="text-gray-700 dark:text-gray-200">Big5 (評量平台預設)</span>
+                                </label>
+                                <label class="flex items-center space-x-1.5 cursor-pointer">
+                                    <input type="radio" name="encoding" value="UTF-8" class="text-blue-600">
+                                    <span class="text-gray-700 dark:text-gray-200">UTF-8</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 檔案按鈕 -->
+                        <div class="flex flex-col justify-end">
+                            <label for="csvFileInput" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg cursor-pointer transition shadow text-center flex items-center justify-center gap-2">
+                                <i class="fas fa-file-csv text-base"></i>
+                                <span>選擇 CSV 檔案</span>
+                            </label>
+                            <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+                        </div>
+                    </div>
+
+                    <p id="fileNameDisplay" class="text-center text-xs text-gray-500 dark:text-gray-400 mt-3 font-medium">尚未選擇檔案</p>
+
+                    <!-- 欄位確認區塊 (讀取後自動顯示) -->
+                    <div id="mappingSection" class="hidden mt-5 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700 bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-xl">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                                <i class="fas fa-sliders-h"></i> 欄位自動對應確認
+                            </h3>
+                            <span class="text-xs text-blue-600 dark:text-blue-400">已自動偵測欄位，若有誤可手動微調</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
+                            <!-- 數學科專用 -->
+                            <div class="field-math">
+                                <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1">學習內容 / 指標</label>
+                                <select id="contentColSelect" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 outline-none"></select>
+                            </div>
+                            <!-- 國/英題號 -->
+                            <div class="field-chi-eng hidden">
+                                <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1">題號 (Q No.)</label>
+                                <select id="qNumColSelect" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 outline-none"></select>
+                            </div>
+                            <!-- 國語內容 -->
+                            <div class="field-chinese hidden">
+                                <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1">基本學習內容</label>
+                                <select id="chiContentColSelect" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 outline-none"></select>
+                            </div>
+                            <!-- 評量重點 -->
+                            <div class="field-chi-eng hidden">
+                                <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1">評量重點</label>
+                                <select id="focusColSelect" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 outline-none"></select>
+                            </div>
+                            <!-- 共同：答錯/未通過人數 -->
+                            <div>
+                                <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1">答錯人數 / 未通過(X)</label>
+                                <select id="valueColSelect" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 outline-none"></select>
+                            </div>
+                        </div>
+
+                        <!-- 預覽框 -->
+                        <div class="bg-white dark:bg-gray-900 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-700 dark:text-gray-300 mb-3 whitespace-pre overflow-x-auto" id="dataPreview"></div>
+
+                        <button id="confirmMappingBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2.5 rounded-lg transition shadow flex items-center justify-center gap-2">
+                            <i class="fas fa-check"></i> 確認欄位正確，開始進行錯題分析
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 步驟 1-2：篩選補救項目 (分析後顯示) -->
+                <div id="step2Section" class="hidden bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div class="flex flex-wrap items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700 gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">2</span>
+                            <h2 class="text-base font-bold text-gray-900 dark:text-white">篩選需補救題目與指標</h2>
+                        </div>
+                        <span id="statsDisplay" class="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">分析結果：共 0 筆錯題</span>
+                    </div>
+
+                    <!-- 快速選取工具列 -->
+                    <div class="flex items-center flex-wrap gap-2 bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs mb-3">
+                        <span class="font-bold text-gray-600 dark:text-gray-300">快速勾選錯題：</span>
+                        <button onclick="quickSelect(2)" class="px-2.5 py-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-200 transition">答錯 2 人↑</button>
+                        <button onclick="quickSelect(3)" class="px-2.5 py-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-200 transition">答錯 3 人↑</button>
+                        <button onclick="quickSelect(4)" class="px-2.5 py-1 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-700 dark:text-gray-200 transition">答錯 4 人↑</button>
+                        <div class="flex-1"></div>
+                        <button id="selectAllBtn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded transition shadow-xs">全選 / 全不選</button>
+                    </div>
+
+                    <!-- 表格容器 -->
+                    <div class="max-h-96 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg custom-scrollbar">
+                        <table class="w-full text-xs text-left" id="dataTable">
+                            <thead class="sticky top-0 bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-semibold border-b border-gray-200 dark:border-gray-700" id="tableHead"></thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700" id="tableBody"></tbody>
+                        </table>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">提示：全班答對（答錯0人）的題目已自動隱藏；匯出佐證表時仍會完整保留所有題目供查核。</p>
+                </div>
+
+                <!-- 步驟 1-3：目標重組與雙軌輸出 (分析後顯示) -->
+                <div id="step3Section" class="hidden bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center gap-2 pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
+                        <span class="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold">3</span>
+                        <h2 class="text-base font-bold text-gray-900 dark:text-white">智慧重組教學目標與成果產出</h2>
+                    </div>
+
+                    <p id="outputDesc" class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        點擊下方按鈕，系統將依照學科脈絡重組教學順序。
+                    </p>
+
+                    <button id="processContextBtn" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+                        <i class="fas fa-sync-alt"></i> 依脈絡重組並提取教學目標
+                    </button>
+
+                    <!-- 提取結果文字區 -->
+                    <div class="mt-4">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-bold text-gray-700 dark:text-gray-300">提取完成之教學目標清單：</label>
+                            <span class="text-xs text-gray-400">已自動去除重複與合併</span>
+                        </div>
+                        <textarea id="resultOutput" readonly class="w-full h-44 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-xs md:text-sm font-mono text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 outline-none resize-y" placeholder="點擊上方重組按鈕後，目標清單將顯示於此..."></textarea>
+                    </div>
+
+                    <!-- 操作按鈕群：一鍵帶入課程規劃 + 複製 + 佐證CSV -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                        <!-- 核心整合按鈕 -->
+                        <button id="syncToPlannerBtn" onclick="syncGoalsToPlanner()" class="sm:col-span-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-2.5 px-3 rounded-lg shadow transition flex items-center justify-center gap-2 text-xs md:text-sm">
+                            <i class="fas fa-arrow-right-circle text-base"></i>
+                            <span>帶入步驟 2 課程規劃表</span>
+                        </button>
+
+                        <button id="copyBtn" class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2.5 px-3 rounded-lg transition flex items-center justify-center gap-2 text-xs md:text-sm border border-gray-300 dark:border-gray-600">
+                            <i class="fas fa-clipboard"></i>
+                            <span>複製到剪貼簿</span>
+                        </button>
+
+                        <button id="exportCsvBtn" class="bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 font-medium py-2.5 px-3 rounded-lg transition flex items-center justify-center gap-2 text-xs md:text-sm">
+                            <i class="fas fa-file-export"></i>
+                            <span>下載分析佐證表 (CSV)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 步驟 1-4：數學學習脈絡 13 大主題對照表 (數學科專用) -->
+                <div id="contextMappingSection" class="hidden bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center gap-2 pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
+                        <span class="w-6 h-6 rounded-full bg-cyan-600 text-white flex items-center justify-center text-xs font-bold">4</span>
+                        <h2 class="text-base font-bold text-gray-900 dark:text-white">數學領域 13 大主題脈絡分類圖</h2>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">系統自動將勾選的錯題指標歸納至對應領域主題，協助教師宏觀掌握學生學習斷點：</p>
+                    <div id="contextMappingOutput" class="space-y-3"></div>
+                </div>
+
+                <!-- 版權與安心使用宣告 -->
+                <footer class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700 text-center text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                    <p><strong>Copyright &copy; 2026 黃奕豪 彰化縣三春國民小學. All rights reserved.</strong></p>
+                    <p>本系統僅在您的瀏覽器端進行運算，不會上傳任何學生個資至外部伺服器，請安心使用。</p>
+                    <p>如有疑問或問題，請發送電子郵件至：<a href="mailto:stimorol@chc.edu.tw" class="text-blue-600 dark:text-blue-400 hover:underline">stimorol@chc.edu.tw</a></p>
+                </footer>
+
+            </div>
+        </div>
+
+        <!-- ********************** TAB 2: 課程規劃與日誌 (Course Planner) ********************** -->
+        <div id="view-planner" class="h-full flex flex-col md:flex-row overflow-hidden hidden">
+            
+            <!-- 左側控制台 -->
+            <div id="control-panel" class="w-full md:w-5/12 lg:w-4/12 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 flex flex-col h-full z-20 shadow-xl border-r border-gray-200 dark:border-gray-800 transition-colors">
+                
+                <!-- 控制台頂部 -->
+                <div class="p-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-850 dark:bg-gray-900 flex justify-between items-center shrink-0">
+                    <div>
+                        <h2 class="text-sm font-bold text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                            <i class="fas fa-edit"></i> 課程設定與日誌編輯
+                        </h2>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="confirmResetData()" class="text-xs bg-red-50 dark:bg-red-950/50 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-600 dark:text-red-300 px-2 py-1 rounded-lg border border-red-200 dark:border-red-900/50 transition font-medium" title="清除重設所有資料">
+                            <i class="fas fa-trash-alt mr-1"></i>重設
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-3.5 space-y-4 custom-scrollbar">
+                    
+                    <!-- 格式選擇 -->
+                    <div class="bg-blue-50/80 dark:bg-gray-800 p-3 rounded-xl border border-blue-200 dark:border-blue-900/50 shadow-xs">
+                        <label class="block text-blue-900 dark:text-blue-300 text-xs font-bold mb-1.5 flex items-center gap-1.5">
+                            <i class="fas fa-table"></i> 表格官方格式樣板
+                        </label>
+                        <select id="formatSelect" onchange="handleFormatChange(this.value)" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="math_vacation">數學 - 寒暑假學扶班</option>
+                            <option value="math_semester_remedial">數學 - 學期中學扶班</option>
+                            <option value="math_semester_original">數學 - 學期中原班 (簡要課程規劃)</option>
+                            <option value="chinese">國語</option>
+                            <option value="english">英語</option>
+                        </select>
+                    </div>
+
+                    <!-- 區塊 1: 基本資料 -->
+                    <div class="bg-white dark:bg-gray-800 p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs text-xs">
+                        <h3 class="font-bold text-blue-700 dark:text-blue-300 mb-2.5 border-b border-gray-100 dark:border-gray-700 pb-1.5 flex items-center gap-1.5 text-xs">
+                            <i class="fas fa-school text-blue-500"></i> 基本行政資料
+                        </h3>
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <div class="col-span-2">
+                                <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">學校名稱</label>
+                                <input type="text" id="schoolName" oninput="updateState('schoolInfo', 'schoolName', this.value)" class="w-full p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">學年度 (自動推算)</label>
+                                <input type="text" id="schoolYear" oninput="updateState('schoolInfo', 'schoolYear', this.value)" class="w-full p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none" placeholder="例：112">
+                            </div>
+                            <div>
+                                <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">學期 / 假期</label>
+                                <select id="semester" onchange="onSemesterChange(this.value)" class="w-full p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none">
+                                    <option value="第一學期">第一學期</option>
+                                    <option value="第二學期">第二學期</option>
+                                    <option value="暑假">暑假</option>
+                                    <option value="寒假">寒假</option>
+                                </select>
+                            </div>
+                            <div class="col-span-2">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="block text-gray-600 dark:text-gray-300 font-medium">年級 (可複選混齡班)</label>
+                                    <span id="gradeSummary" class="text-xs font-semibold text-blue-600 dark:text-blue-400"></span>
+                                </div>
+                                <div id="gradeChipsContainer" class="flex flex-wrap gap-1.5"></div>
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">班別</label>
+                                <input type="text" id="className" oninput="updateState('schoolInfo', 'className', this.value)" class="w-full p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none" placeholder="例：六年級數學班">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">授課教師</label>
+                                <input type="text" id="teacher" oninput="updateState('schoolInfo', 'teacher', this.value)" class="w-full p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">開課日期</label>
+                                <input type="date" id="startDate" onchange="onStartDateChange()" class="w-full p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">結課日期</label>
+                                <input type="date" id="endDate" onchange="updateDateRange()" class="w-full p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none">
+                            </div>
+                            <div class="col-span-2 space-y-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                <div>
+                                    <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1.5">上課星期 (可複選)</label>
+                                    <div id="weekdayChipsContainer" class="flex flex-wrap gap-1.5"></div>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">授課時間 (起訖時段)</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="time" id="classStartTime" onchange="onClassTimeChange()" class="flex-1 p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none">
+                                        <span class="text-gray-400 font-medium">至</span>
+                                        <input type="time" id="classEndTime" onchange="onClassTimeChange()" class="flex-1 p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none">
+                                    </div>
+                                </div>
+                                <div class="p-2 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 flex items-center justify-between">
+                                    <span class="text-gray-500 dark:text-gray-400">時段格式預覽：</span>
+                                    <span id="classTimePreview" class="font-semibold text-blue-700 dark:text-blue-300"></span>
+                                </div>
+                            </div>
+                            <div class="col-span-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">總節數與課堂排程</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="totalSessions" min="1" oninput="updateState('schoolInfo', 'totalSessions', this.value)" class="w-20 p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none font-bold text-center">
+                                    <span class="text-gray-500 dark:text-gray-400 text-xs shrink-0">節</span>
+                                    <button type="button" onclick="autoGenerateScheduleLogs()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 px-2.5 rounded-lg font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-xs">
+                                        <i class="fas fa-magic"></i> 依時段自動排定堂數與日期
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 區塊 2: 教學目標 -->
+                    <div class="bg-white dark:bg-gray-800 p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs text-xs">
+                        <div class="flex justify-between items-center mb-2 border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                            <h3 class="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                                <i class="fas fa-bullseye"></i> 教學目標 (基本學習內容)
+                            </h3>
+                            <button onclick="switchMainTab('analysis')" class="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium">
+                                <i class="fas fa-external-link-alt"></i> 前往步驟 1 提取
+                            </button>
+                        </div>
+                        <textarea id="objectives" rows="5" oninput="updateState('objectives', null, this.value)" class="w-full p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 leading-relaxed font-sans focus:ring-2 focus:ring-blue-500/50 outline-none" placeholder="請在此貼上教學目標，或由步驟 1 自動帶入..."></textarea>
+                    </div>
+
+                    <!-- 區塊 3: 學生名單與成績 -->
+                    <div class="bg-white dark:bg-gray-800 p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs text-xs">
+                        <div class="flex justify-between items-center mb-2.5 border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                            <h3 class="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                                <i class="fas fa-users"></i> 學生名單與評量成績
+                            </h3>
+                            <button onclick="addStudent()" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-xs font-medium">
+                                <i class="fas fa-plus"></i> 新增學生
+                            </button>
+                        </div>
+                        <div id="student-list" class="space-y-2 max-h-52 overflow-y-auto custom-scrollbar pr-1"></div>
+                    </div>
+
+                    <!-- 區塊 4: 課程日誌 -->
+                    <div class="bg-white dark:bg-gray-800 p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs text-xs mb-10">
+                        <div class="flex justify-between items-center mb-2.5 border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                            <h3 class="font-bold text-pink-700 dark:text-pink-400 flex items-center gap-1.5">
+                                <i class="fas fa-calendar-check"></i> 課堂日誌記錄
+                            </h3>
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="autoGenerateScheduleLogs()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-xs font-medium" title="依開課日期與時段自動排程">
+                                    <i class="fas fa-magic"></i> 自動排課
+                                </button>
+                                <button onclick="addLog()" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-xs font-medium">
+                                    <i class="fas fa-plus"></i> 新增一堂課
+                                </button>
+                            </div>
+                        </div>
+                        <div id="log-list" class="space-y-3"></div>
+                        <button onclick="addLog()" class="w-full mt-3.5 py-2.5 border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-blue-500 hover:border-blue-500 dark:hover:text-blue-400 dark:hover:border-blue-400 rounded-xl transition flex items-center justify-center gap-1.5 bg-gray-50 dark:bg-gray-900 font-medium">
+                            <i class="fas fa-plus-circle"></i> 新增一堂課日誌
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- 底部按鈕區：匯出/匯入/PDF -->
+                <div class="p-3.5 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shrink-0 space-y-2.5">
+                    <div class="flex gap-2">
+                        <button onclick="importJSON()" class="flex-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs py-2 rounded-lg font-semibold transition flex items-center justify-center gap-1.5 border border-gray-300 dark:border-gray-700">
+                            <i class="fas fa-file-import"></i> 匯入設定
+                        </button>
+                        <button onclick="exportJSON()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 rounded-lg font-semibold transition flex items-center justify-center gap-1.5 shadow-sm">
+                            <i class="fas fa-file-export"></i> 備份 JSON
+                        </button>
+                    </div>
+                    <button onclick="downloadPDF()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2">
+                        <i class="fas fa-file-pdf"></i> 下載排版完成之 A4 PDF
+                    </button>
+                    <input type="file" id="fileInput" class="hidden" accept=".json" onchange="handleFileSelect(event)">
+                    
+                    <!-- 版權與安心使用宣告 -->
+                    <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-800 text-center text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+                        <p><strong>Copyright &copy; 2026 黃奕豪 彰化縣三春國民小學. All rights reserved.</strong></p>
+                        <p class="text-[11px] text-gray-400 dark:text-gray-500">純瀏覽器端運算，不會上傳任何學生個資至外部伺服器</p>
+                        <p class="text-[11px]">如有疑問或問題，請發送電子郵件至：<a href="mailto:stimorol@chc.edu.tw" class="text-blue-600 dark:text-blue-400 hover:underline">stimorol@chc.edu.tw</a></p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 右側即時 A4 預覽區 -->
+            <div id="preview-container" class="w-full md:w-7/12 lg:w-8/12 bg-gray-200 dark:bg-gray-950 h-full overflow-y-auto p-4 md:p-8 flex flex-col items-center custom-scrollbar transition-colors">
+                <!-- 由 JS 動態產生多個 .a4-paper -->
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- ======================= JavaScript 邏輯整合 ======================= -->
+    <script>
+        // ==========================================
+        // 全域導覽與模式切換
+        // ==========================================
+        function switchMainTab(tab) {
+            const viewAnalysis = document.getElementById('view-analysis');
+            const viewPlanner = document.getElementById('view-planner');
+            const btnAnalysis = document.getElementById('tab-btn-analysis');
+            const btnPlanner = document.getElementById('tab-btn-planner');
+
+            if (tab === 'analysis') {
+                viewAnalysis.classList.remove('hidden');
+                viewPlanner.classList.add('hidden');
+                btnAnalysis.className = "px-4 py-2 text-xs md:text-sm font-bold rounded-lg transition-all flex items-center gap-2 bg-blue-600 text-white shadow-sm";
+                btnPlanner.className = "px-4 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white";
+            } else {
+                viewAnalysis.classList.add('hidden');
+                viewPlanner.classList.remove('hidden');
+                btnPlanner.className = "px-4 py-2 text-xs md:text-sm font-bold rounded-lg transition-all flex items-center gap-2 bg-blue-600 text-white shadow-sm";
+                btnAnalysis.className = "px-4 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white";
+                // 進入 Planner 時重新計算預覽排版
+                renderPreview();
+            }
+        }
+
+        // 主題切換
+        function toggleTheme() {
+            const htmlElement = document.documentElement;
+            if (htmlElement.classList.contains('dark')) {
+                htmlElement.classList.remove('dark');
+                appState.theme = 'light';
+                document.getElementById('theme-icon').className = 'fas fa-moon';
+            } else {
+                htmlElement.classList.add('dark');
+                appState.theme = 'dark';
+                document.getElementById('theme-icon').className = 'fas fa-sun text-yellow-400';
+            }
+            saveAndRender();
+        }
+
+        // 介面字體大小切換 (小: sm, 中: md, 大: lg)
+        function setFontSize(size) {
+            const htmlElement = document.documentElement;
+            htmlElement.classList.remove('font-size-sm', 'font-size-md', 'font-size-lg');
+            htmlElement.classList.add(`font-size-${size}`);
+            
+            appState.fontSize = size;
+            saveAndRender();
+            
+            // 更新切換按鈕高亮狀態
+            ['sm', 'md', 'lg'].forEach(s => {
+                const btn = document.getElementById(`btn-font-${s}`);
+                if (btn) {
+                    if (s === size) {
+                        btn.className = "px-2.5 py-1 text-xs font-bold rounded-lg bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-300 shadow-xs transition";
+                    } else {
+                        btn.className = "px-2.5 py-1 text-xs font-semibold rounded-lg text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition";
+                    }
+                }
+            });
+        }
+
+        // ==========================================
+        // Modal 與提示輔助函式
+        // ==========================================
+        function showConfirm(message, onConfirm, onCancel) {
+            const modal = document.getElementById('custom-modal');
+            document.getElementById('modal-title').innerHTML = '<i class="fas fa-question-circle text-amber-500"></i> 確認操作';
+            document.getElementById('modal-message').innerText = message;
+            const cancelBtn = document.getElementById('modal-cancel');
+            cancelBtn.classList.remove('hidden');
+            
+            const confirmBtn = document.getElementById('modal-confirm');
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            newConfirmBtn.onclick = function() { onConfirm(); closeModal(); };
+            
+            if (onCancel) {
+                const newCancelBtn = cancelBtn.cloneNode(true);
+                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+                newCancelBtn.onclick = function() { onCancel(); closeModal(); };
+            } else {
+                cancelBtn.onclick = closeModal;
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function showAlert(message) {
+            const modal = document.getElementById('custom-modal');
+            document.getElementById('modal-title').innerHTML = '<i class="fas fa-info-circle text-blue-500"></i> 提示訊息';
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('modal-cancel').classList.add('hidden');
+            const confirmBtn = document.getElementById('modal-confirm');
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            newConfirmBtn.onclick = closeModal;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+
+        // =========================================================================
+        // 模組 1：測驗診斷分析 (Remedial Tool 核心演算法與資料處理)
+        // =========================================================================
+        let rawRows = [];
+        let headers = [];
+        let parsedData = [];
+        let headerRowIndex = 0;
+        let currentSubject = 'math';
+
+        const MATH_TOPICS = {
+            10: "整數數概念", 20: "整數加減", 30: "整數乘除", 40: "多步驟問題",
+            50: "分數", 60: "小數", 70: "概數與估算", 80: "量與實測",
+            90: "關係", 100: "空間與形狀", 110: "因數與倍數", 120: "比與比值",
+            130: "資料與不確定性", 99: "其他/未分類"
+        };
+
+        const subjectSelect = document.getElementById('subjectSelect');
+        const fileInput = document.getElementById('csvFileInput');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const mappingSection = document.getElementById('mappingSection');
+
+        const contentColSelect = document.getElementById('contentColSelect');
+        const qNumColSelect = document.getElementById('qNumColSelect');
+        const chiContentColSelect = document.getElementById('chiContentColSelect');
+        const focusColSelect = document.getElementById('focusColSelect');
+        const valueColSelect = document.getElementById('valueColSelect');
+        const dataPreview = document.getElementById('dataPreview');
+        const confirmMappingBtn = document.getElementById('confirmMappingBtn');
+
+        const step2Section = document.getElementById('step2Section');
+        const step3Section = document.getElementById('step3Section');
+        const contextMappingSection = document.getElementById('contextMappingSection');
+        const tableHead = document.getElementById('tableHead');
+        const tableBody = document.getElementById('tableBody');
+        const statsDisplay = document.getElementById('statsDisplay');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const processContextBtn = document.getElementById('processContextBtn');
+        const outputDesc = document.getElementById('outputDesc');
+        const resultOutput = document.getElementById('resultOutput');
+        const copyBtn = document.getElementById('copyBtn');
+        const exportCsvBtn = document.getElementById('exportCsvBtn');
+        const contextMappingOutput = document.getElementById('contextMappingOutput');
+
+        // 科目切換
+        subjectSelect.addEventListener('change', (e) => {
+            currentSubject = e.target.value;
+            updateUIForSubject();
+            if (rawRows.length > 0) detectAndSetupMapping();
+        });
+
+        function updateUIForSubject() {
+            const mathFields = document.querySelectorAll('.field-math');
+            const chiEngFields = document.querySelectorAll('.field-chi-eng');
+            const chineseFields = document.querySelectorAll('.field-chinese');
+
+            mathFields.forEach(el => el.classList.add('hidden'));
+            chiEngFields.forEach(el => el.classList.add('hidden'));
+            chineseFields.forEach(el => el.classList.add('hidden'));
+
+            step2Section.classList.add('hidden');
+            step3Section.classList.add('hidden');
+            contextMappingSection.classList.add('hidden');
+            resultOutput.value = "";
+
+            if (currentSubject === 'math') {
+                mathFields.forEach(el => el.classList.remove('hidden'));
+                processContextBtn.innerHTML = '<i class="fas fa-sitemap mr-1"></i> 依數學領域 13 大學習脈絡重組並產出';
+                outputDesc.textContent = "系統將解析九年一貫/108課綱指標代碼，依照「數學學習脈絡」重組最適合的補救教學順序。";
+            } else if (currentSubject === 'chinese') {
+                chiEngFields.forEach(el => el.classList.remove('hidden'));
+                chineseFields.forEach(el => el.classList.remove('hidden'));
+                processContextBtn.innerHTML = '<i class="fas fa-sort-numeric-down mr-1"></i> 依題號與重點智慧合併產出';
+                outputDesc.textContent = "系統將依照題號順序，並將相同學習內容的評量重點自動智慧合併。";
+            } else if (currentSubject === 'english') {
+                chiEngFields.forEach(el => el.classList.remove('hidden'));
+                processContextBtn.innerHTML = '<i class="fas fa-filter mr-1"></i> 依題號與特徵子集去重產出';
+                outputDesc.textContent = "系統將依照題號順序，並自動過濾已被包含的重複單字/句型特徵。";
+            }
+        }
+
+        // 讀取 CSV
+        fileInput.addEventListener('change', function(e) {
+            processFile(e.target.files[0]);
+        });
+
+        document.querySelectorAll('input[name="encoding"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (fileInput.files.length > 0) processFile(fileInput.files[0]);
+            });
+        });
+
+        function processFile(file) {
+            if (!file) return;
+            fileNameDisplay.innerHTML = `<span class="text-blue-600 dark:text-blue-400 font-semibold"><i class="fas fa-check-circle mr-1"></i>已載入：${file.name}</span>`;
+            const encoding = document.querySelector('input[name="encoding"]:checked').value;
+            const reader = new FileReader();
+            reader.readAsText(file, encoding);
+            reader.onload = function(event) {
+                parseRawCSV(event.target.result);
+            };
+            step2Section.classList.add('hidden');
+            step3Section.classList.add('hidden');
+            contextMappingSection.classList.add('hidden');
+            mappingSection.classList.add('hidden');
+        }
+
+        function parseRawCSV(text) {
+            const lines = text.replace(/\r\n/g, '\n').split('\n');
+            rawRows = [];
+            lines.forEach((line) => {
+                if (!line.trim()) return;
+                const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                const cleanCols = cols.map(c => {
+                    if (c) return c.trim().replace(/^"|"$/g, '').replace(/""/g, '"');
+                    return "";
+                });
+                rawRows.push(cleanCols);
+            });
+            if (rawRows.length === 0) {
+                showAlert("檔案內容為空或格式無法正確讀取。");
+                return;
+            }
+            detectAndSetupMapping();
+        }
+
+        function detectAndSetupMapping() {
+            headerRowIndex = 0;
+            for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+                const rowStr = rawRows[i].join(" ");
+                if (rowStr.includes("指標") || rowStr.includes("內容") || rowStr.includes("題號") || rowStr.includes("評量重點")) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+
+            headers = [];
+            const mainRow = rawRows[headerRowIndex] || [];
+            const subRow = rawRows[headerRowIndex + 1] || [];
+            const maxCols = Math.max(mainRow.length, subRow.length);
+
+            for (let c = 0; c < maxCols; c++) {
+                let txt1 = mainRow[c] || "";
+                let txt2 = subRow[c] || "";
+                let combined = (txt1 && txt2) ? `${txt1} ${txt2}` : (txt1 + txt2);
+                if (!combined.trim()) combined = `(欄位 ${c + 1})`;
+                headers.push(combined);
+            }
+
+            const selects = [contentColSelect, valueColSelect, qNumColSelect, chiContentColSelect, focusColSelect];
+            selects.forEach(sel => {
+                sel.innerHTML = "";
+                headers.forEach((h, idx) => {
+                    let label = h.length > 20 ? h.substring(0, 20) + "..." : h;
+                    sel.add(new Option(`[欄位 ${idx + 1}] ${label}`, idx));
+                });
+            });
+
+            guessMapping();
+            updatePreview();
+            mappingSection.classList.remove('hidden');
+            selects.forEach(sel => sel.onchange = updatePreview);
+        }
+
+        function guessMapping() {
+            const findIdx = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+            let vIdx = -1;
+
+            vIdx = headers.findIndex(h => {
+                const clean = h.trim().toUpperCase();
+                return clean === "X" || clean === "Ｘ";
+            });
+
+            if (vIdx === -1) {
+                vIdx = headers.findIndex(h => {
+                    const up = h.toUpperCase();
+                    return up.includes("(X)") || up.includes("（X）") || up.includes("X)") || up.includes("X）");
+                });
+            }
+            if (vIdx === -1) {
+                vIdx = headers.findIndex(h => {
+                    const clean = h.trim().toUpperCase();
+                    return clean.endsWith(" X") || clean.endsWith(" Ｘ") || clean.endsWith("X") || clean.endsWith("Ｘ");
+                });
+            }
+            if (vIdx === -1) vIdx = headers.findIndex(h => h.includes("答錯") || h.includes("未通過"));
+            if (vIdx === -1) {
+                vIdx = headers.findIndex(h => {
+                    const up = h.toUpperCase();
+                    return up.includes("X") && !up.includes("INDEX") && !up.includes("TAX");
+                });
+            }
+            if (vIdx === -1 && headers.length >= 6) {
+                const col6 = headers[5] || "";
+                if (col6.toUpperCase().includes("X")) vIdx = 5;
+            }
+
+            if (vIdx !== -1) valueColSelect.value = vIdx;
+
+            if (currentSubject === 'math') {
+                let cIdx = findIdx(["內容", "指標", "基本學習內容"]);
+                if (cIdx !== -1) contentColSelect.value = cIdx;
+            } else if (currentSubject === 'chinese') {
+                let qIdx = findIdx(["題號"]);
+                let cIdx = findIdx(["內容", "指標", "基本學習內容"]);
+                let fIdx = findIdx(["重點", "評量"]);
+                if (qIdx !== -1) qNumColSelect.value = qIdx;
+                if (cIdx !== -1) chiContentColSelect.value = cIdx;
+                if (fIdx !== -1) focusColSelect.value = fIdx;
+            } else if (currentSubject === 'english') {
+                let qIdx = findIdx(["題號"]);
+                let fIdx = findIdx(["重點", "評量"]);
+                if (qIdx !== -1) qNumColSelect.value = qIdx;
+                if (fIdx !== -1) focusColSelect.value = fIdx;
+            }
+        }
+
+        function updatePreview() {
+            let html = "";
+            let startPreviewRow = headerRowIndex + 1;
+            let previewRows = Math.min(startPreviewRow + 3, rawRows.length);
+
+            for (let i = startPreviewRow; i < previewRows; i++) {
+                const row = rawRows[i];
+                const vVal = row[valueColSelect.value] || "-";
+                if (currentSubject === 'math') {
+                    const cVal = row[contentColSelect.value] || "-";
+                    html += `第 ${i + 1} 列: 內容="${cVal.substring(0, 15)}..." | 答錯人數="${vVal}"\n`;
+                } else if (currentSubject === 'chinese') {
+                    const qVal = row[qNumColSelect.value] || "-";
+                    const cVal = row[chiContentColSelect.value] || "-";
+                    const fVal = row[focusColSelect.value] || "-";
+                    html += `第 ${i + 1} 列: 題號="${qVal}" | 內容="${cVal.substring(0, 8)}..." | 重點="${fVal.substring(0, 8)}..." | 答錯="${vVal}"\n`;
+                } else if (currentSubject === 'english') {
+                    const qVal = row[qNumColSelect.value] || "-";
+                    const fVal = row[focusColSelect.value] || "-";
+                    html += `第 ${i + 1} 列: 題號="${qVal}" | 重點="${fVal.substring(0, 15)}..." | 答錯="${vVal}"\n`;
+                }
+            }
+            dataPreview.textContent = html;
+        }
+
+        // 確認並分析
+        confirmMappingBtn.addEventListener('click', () => {
+            parsedData = [];
+            const vIdx = parseInt(valueColSelect.value);
+            const mathCIdx = parseInt(contentColSelect.value);
+            const qNumIdx = parseInt(qNumColSelect.value);
+            const chiCIdx = parseInt(chiContentColSelect.value);
+            const focusIdx = parseInt(focusColSelect.value);
+
+            for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
+                const row = rawRows[i];
+                if (!row || row.length === 0) continue;
+
+                const valStr = row[vIdx] || "";
+                if (valStr.toUpperCase().includes("X") || valStr.includes("答錯") || valStr.includes("人數")) continue;
+
+                let errorCount = parseInt(valStr.replace(/[^\d]/g, '')) || 0;
+                let isZeroError = (valStr.trim() === "" || errorCount === 0);
+
+                let item = {
+                    id: i,
+                    errorCount: errorCount,
+                    selected: false,
+                    isZeroError: isZeroError,
+                    originalText: "",
+                    code: "",
+                    qNum: 0,
+                    chiContent: "",
+                    focus: ""
+                };
+
+                if (currentSubject === 'math') {
+                    const content = row[mathCIdx] || "";
+                    item.originalText = content;
+                    const codeMatch = content.match(/([A-Z]+-\d+-\d+(-\d+)?)|(\d+-[a-z]+-\d+)/i);
+                    item.code = codeMatch ? codeMatch[0].toUpperCase() : "";
+                } else if (currentSubject === 'chinese') {
+                    const qRaw = row[qNumIdx] || "0";
+                    item.qNum = parseInt(qRaw.replace(/[^\d]/g, '')) || 0;
+                    item.chiContent = row[chiCIdx] || "";
+                    item.focus = row[focusIdx] || "";
+                    item.originalText = `[題號${qRaw}] ${item.chiContent} — ${item.focus}`;
+                } else if (currentSubject === 'english') {
+                    const qRaw = row[qNumIdx] || "0";
+                    item.qNum = parseInt(qRaw.replace(/[^\d]/g, '')) || 0;
+                    item.focus = row[focusIdx] || "";
+                    item.originalText = `[題號${qRaw}] ${item.focus}`;
+                }
+                parsedData.push(item);
+            }
+
+            parsedData.sort((a, b) => b.errorCount - a.errorCount);
+            renderTable();
+
+            const validCount = parsedData.filter(p => !p.isZeroError).length;
+            statsDisplay.textContent = `分析結果：共 ${validCount} 筆有錯資料`;
+
+            step2Section.classList.remove('hidden');
+            step3Section.classList.remove('hidden');
+            contextMappingSection.classList.add('hidden');
+            step2Section.scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // 渲染錯題表格
+        function renderTable() {
+            let headHtml = `<tr><th class="p-2.5 text-center w-12">選取</th>`;
+            if (currentSubject === 'math') {
+                headHtml += `<th class="p-2.5">學習內容 / 能力指標</th>`;
+            } else if (currentSubject === 'chinese') {
+                headHtml += `<th class="p-2.5 w-16 text-center">題號</th><th class="p-2.5">基本學習內容</th><th class="p-2.5">評量重點</th>`;
+            } else if (currentSubject === 'english') {
+                headHtml += `<th class="p-2.5 w-16 text-center">題號</th><th class="p-2.5">評量重點</th>`;
+            }
+            headHtml += `<th class="p-2.5 text-center w-24">答錯人數</th></tr>`;
+            tableHead.innerHTML = headHtml;
+
+            tableBody.innerHTML = '';
+            const displayData = parsedData.filter(item => !item.isZeroError);
+
+            if (displayData.length === 0) {
+                const cols = currentSubject === 'chinese' ? 5 : (currentSubject === 'english' ? 4 : 3);
+                tableBody.innerHTML = `<tr><td colspan="${cols}" class="text-center py-8 text-gray-500">無符合資料 (可能全班全對)。</td></tr>`;
+                return;
+            }
+
+            displayData.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors";
+
+                const tdCheck = document.createElement('td');
+                tdCheck.className = "p-2.5 text-center";
+                const checkbox = document.createElement('input');
+                checkbox.type = "checkbox";
+                checkbox.checked = item.selected;
+                checkbox.className = "w-4 h-4 text-blue-600 rounded cursor-pointer";
+                checkbox.addEventListener('change', (e) => { item.selected = e.target.checked; });
+                tdCheck.appendChild(checkbox);
+                tr.appendChild(tdCheck);
+
+                if (currentSubject === 'math') {
+                    const tdContent = document.createElement('td');
+                    tdContent.className = "p-2.5 text-gray-800 dark:text-gray-200";
+                    tdContent.textContent = item.originalText;
+                    tr.appendChild(tdContent);
+                } else if (currentSubject === 'chinese') {
+                    const tdQ = document.createElement('td');
+                    tdQ.className = "p-2.5 font-bold text-center text-gray-700 dark:text-gray-300";
+                    tdQ.textContent = item.qNum;
+                    const tdContent = document.createElement('td');
+                    tdContent.className = "p-2.5 text-blue-600 dark:text-blue-400 font-medium";
+                    tdContent.textContent = item.chiContent;
+                    const tdFocus = document.createElement('td');
+                    tdFocus.className = "p-2.5 text-gray-700 dark:text-gray-200";
+                    tdFocus.textContent = item.focus;
+                    tr.appendChild(tdQ); tr.appendChild(tdContent); tr.appendChild(tdFocus);
+                } else if (currentSubject === 'english') {
+                    const tdQ = document.createElement('td');
+                    tdQ.className = "p-2.5 font-bold text-center text-gray-700 dark:text-gray-300";
+                    tdQ.textContent = item.qNum;
+                    const tdFocus = document.createElement('td');
+                    tdFocus.className = "p-2.5 text-gray-700 dark:text-gray-200";
+                    tdFocus.textContent = item.focus;
+                    tr.appendChild(tdQ); tr.appendChild(tdFocus);
+                }
+
+                const tdError = document.createElement('td');
+                tdError.className = "p-2.5 text-center font-bold";
+                tdError.textContent = item.errorCount;
+                if (item.errorCount > 0) {
+                    tdError.className += " text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30";
+                }
+                tr.appendChild(tdError);
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function quickSelect(threshold) {
+            let hasChange = false;
+            parsedData.forEach(item => {
+                if (!item.isZeroError) {
+                    const newState = item.errorCount >= threshold;
+                    if (item.selected !== newState) {
+                        item.selected = newState;
+                        hasChange = true;
+                    }
+                }
+            });
+            if (hasChange) renderTable();
+        }
+
+        selectAllBtn.addEventListener('click', () => {
+            let isAllSelected = !parsedData.some(p => !p.isZeroError && !p.selected);
+            parsedData.forEach(item => {
+                if (!item.isZeroError) item.selected = !isAllSelected;
+            });
+            renderTable();
+        });
+
+        // 數學脈絡分數計算
+        function getMathContextScore(code) {
+            if (!code) return 99999999;
+            let domain = "", grade = 0, seq1 = 0, seq2 = 0;
+            let match108 = code.match(/^([NSRD]C?)[-](\d+)[-](\d+)(?:[-](\d+))?/);
+            if (match108) {
+                domain = match108[1].substring(0, 1);
+                grade = parseInt(match108[2]);
+                seq1 = parseInt(match108[3]);
+                seq2 = match108[4] ? parseInt(match108[4]) : 0;
+            } else {
+                let match97 = code.match(/^(\d+)[-]([nsad])[-](\d+)/i);
+                if (match97) {
+                    grade = parseInt(match97[1]);
+                    domain = match97[2].toUpperCase();
+                    seq1 = parseInt(match97[3]);
+                } else { return 99000000; }
+            }
+
+            let topicId = 99;
+            if (domain === 'N') {
+                if (grade === 1) {
+                    if (seq1 === 1 || seq1 === 4) topicId = 10; else if (seq1 === 2 || seq1 === 3) topicId = 20; else if (seq1 === 5) topicId = 81; else if (seq1 === 6) topicId = 87;
+                } else if (grade === 2) {
+                    if (seq1 === 1 || seq1 === 5) topicId = 10; else if (seq1 === 2 || seq1 === 3) topicId = 20; else if (seq1 === 4) topicId = 70; else if (seq1 >= 6 && seq1 <= 7) topicId = 30; else if (seq1 === 8) topicId = 40; else if (seq1 === 9) topicId = 30; else if (seq1 === 10) topicId = 50; else if (seq1 === 11) topicId = 81; else if (seq1 === 12) { if (seq2 === 1) topicId = 82; else if (seq2 === 2) topicId = 83; else if (seq2 === 3) topicId = 84; else topicId = 82; } else if (seq1 === 13 || seq1 === 14) topicId = 87;
+                } else if (grade === 3) {
+                    if (seq1 === 1 || seq1 === 11) topicId = 10; else if (seq1 === 2) topicId = 20; else if (seq1 >= 3 && seq1 <= 6) topicId = 30; else if (seq1 === 7) topicId = 40; else if (seq1 === 8) topicId = 70; else if (seq1 === 9) topicId = 50; else if (seq1 === 10) topicId = 60; else if (seq1 === 12) topicId = 81; else if (seq1 === 13) topicId = 85; else if (seq1 === 14) topicId = 84; else if (seq1 === 15) topicId = 82; else if (seq1 === 16) topicId = 83; else if (seq1 === 17) topicId = 87;
+                } else if (grade === 4) {
+                    if (seq1 === 1) topicId = 10; else if (seq1 === 2) topicId = 30; else if (seq1 === 3) topicId = 40; else if (seq1 === 4) topicId = 70; else if (seq1 === 5 || seq1 === 6) topicId = 50; else if (seq1 === 7) topicId = 60; else if (seq1 === 8) topicId = 50; else if (seq1 === 9) topicId = 81; else if (seq1 === 10) topicId = 85; else if (seq1 === 11) topicId = 84; else if (seq1 === 12) topicId = 86; else if (seq1 === 13) topicId = 87;
+                } else if (grade === 5) {
+                    if (seq1 === 1) topicId = 10; else if (seq1 === 2) topicId = 40; else if (seq1 === 3) topicId = 110; else if (seq1 >= 4 && seq1 <= 7) topicId = 50; else if (seq1 === 8) topicId = 60; else if (seq1 === 9) topicId = 30; else if (seq1 === 10) topicId = 120; else if (seq1 === 11) topicId = 60; else if (seq1 === 12) topicId = 84; else if (seq1 === 13) topicId = 83; else if (seq1 === 14) topicId = 86; else if (seq1 === 15) topicId = 82; else if (seq1 === 16) topicId = 87;
+                } else if (grade === 6) {
+                    if (seq1 === 1 || seq1 === 2) topicId = 110; else if (seq1 === 3) topicId = 50; else if (seq1 === 4) topicId = 60; else if (seq1 === 5) topicId = 40; else if (seq1 >= 6 && seq1 <= 8) topicId = 120;
+                }
+            } else if (domain === 'S') {
+                if ((grade === 2 && (seq1 === 3 || seq1 === 4)) || (grade === 4 && seq1 === 3) || (grade === 5 && (seq1 === 2 || seq1 === 5)) || (grade === 6 && (seq1 === 3 || seq1 === 4))) {
+                    if (grade === 2) topicId = 81; else if (grade === 4) topicId = 84; else if (grade === 5 && seq1 === 2) topicId = 84; else if (grade === 5 && seq1 === 5) topicId = 86; else if (grade === 6 && seq1 === 3) topicId = 84; else if (grade === 6 && seq1 === 4) topicId = 86;
+                } else if (grade === 4 && seq1 === 2) topicId = 85; else topicId = 100;
+            } else if (domain === 'R') {
+                if (grade === 4 && (seq1 === 1 || seq1 === 2)) topicId = 40; else if (grade === 5 && seq1 === 2) topicId = 40; else topicId = 90;
+            } else if (domain === 'D') { topicId = 130; }
+
+            return (topicId * 100000) + (grade * 10000) + (seq1 * 100) + seq2;
+        }
+
+        // 智慧合併 (國語)
+        function smartMergeFocus(focusSet) {
+            let arr = Array.from(focusSet).map(s => s.trim().replace(/[。；\.]$/, ''));
+            if (arr.length === 0) return "";
+            if (arr.length === 1) return arr[0];
+            let prefix = arr[0];
+            for (let i = 1; i < arr.length; i++) {
+                while (arr[i].indexOf(prefix) !== 0) {
+                    prefix = prefix.substring(0, prefix.length - 1);
+                    if (prefix === "") break;
+                }
+            }
+            if (prefix.length === 0) return arr.join('、');
+            let suffixes = arr.map(s => s.substring(prefix.length));
+            return prefix + suffixes.join('、');
+        }
+
+        // 英語特徵去重
+        function filterEnglishSubsets(items) {
+            let uniqueItems = [];
+            const seenTexts = new Set();
+            items.forEach(item => {
+                let text = item.focus.trim().replace(/[。\.]$/, '');
+                if (!seenTexts.has(text)) {
+                    seenTexts.add(text);
+                    uniqueItems.push({
+                        original: item,
+                        cleanText: text,
+                        keywords: extractKeywords(text),
+                        keep: true
+                    });
+                }
+            });
+
+            for (let i = 0; i < uniqueItems.length; i++) {
+                if (!uniqueItems[i].keep) continue;
+                for (let j = 0; j < uniqueItems.length; j++) {
+                    if (i === j || !uniqueItems[j].keep) continue;
+                    if (checkIsSubset(uniqueItems[i], uniqueItems[j])) {
+                        uniqueItems[i].keep = false;
+                        break;
+                    }
+                }
+            }
+            return uniqueItems.filter(u => u.keep).map(u => u.original);
+        }
+
+        function extractKeywords(text) {
+            let temp = text.replace(/尤其是跟/g, '').replace(/相關的單字/g, '').replace(/相關/g, '').replace(/單字/g, '');
+            return temp.split(/[、，, ]+/).filter(k => k.trim().length > 0);
+        }
+
+        function checkIsSubset(itemA, itemB) {
+            const textA = itemA.cleanText;
+            const textB = itemB.cleanText;
+            if (textB.includes(textA) && textB.length > textA.length) return true;
+            let i = 0;
+            while (i < textA.length && i < textB.length && textA[i] === textB[i]) i++;
+            if (i < 5) return false;
+            const keysA = itemA.keywords;
+            const keysB = itemB.keywords;
+            if (keysA.length === 0) return false;
+            return keysA.every(ka => keysB.some(kb => kb === ka || kb.includes(ka)));
+        }
+
+        // 產生數學 13 大脈絡視覺對照表
+        function generateContextMapping(sortedItems) {
+            const grouped = {};
+            sortedItems.forEach(item => {
+                const score = getMathContextScore(item.code);
+                let topicId = Math.floor(score / 100000);
+                if (topicId >= 900) topicId = 99;
+                if (topicId >= 81 && topicId <= 87) topicId = 80;
+                if (!grouped[topicId]) grouped[topicId] = [];
+                grouped[topicId].push(item.originalText);
+            });
+
+            let html = '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">';
+            const orderedKeys = Object.keys(MATH_TOPICS).map(Number).sort((a, b) => a - b);
+            let hasData = false;
+
+            orderedKeys.forEach(tid => {
+                if (grouped[tid] && grouped[tid].length > 0) {
+                    hasData = true;
+                    const topicName = MATH_TOPICS[tid];
+                    const count = grouped[tid].length;
+                    html += `
+                        <div class="bg-gray-50/80 dark:bg-gray-900/80 rounded-xl p-3.5 border border-gray-200 dark:border-gray-700 shadow-2xs">
+                            <div class="flex justify-between items-center font-bold text-xs text-blue-700 dark:text-blue-300 mb-2 border-b border-gray-200 dark:border-gray-700/80 pb-1.5">
+                                <span><i class="fas fa-folder-open mr-1"></i>${topicName}</span>
+                                <span class="bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-full text-[11px]">${count} 項</span>
+                            </div>
+                            <ol class="list-decimal list-inside space-y-1.5 text-xs text-gray-700 dark:text-gray-300">
+                                ${grouped[tid].map(text => `<li class="truncate" title="${text.replace(/"/g, '')}">${text.replace(/"/g, '')}</li>`).join('')}
+                            </ol>
+                        </div>
+                    `;
+                }
+            });
+            html += '</div>';
+            contextMappingOutput.innerHTML = hasData ? html : '<p class="text-xs text-gray-500">無符合資料。</p>';
+            contextMappingSection.classList.remove('hidden');
+        }
+
+        // 依脈絡重組並產出目標
+        processContextBtn.addEventListener('click', () => {
+            const selectedItems = parsedData.filter(item => item.selected && !item.isZeroError);
+            if (selectedItems.length === 0) {
+                showAlert("請先在上方表格勾選至少一項錯題！");
+                return;
+            }
+
+            let sortedItems = [...selectedItems];
+            let outputText = "";
+
+            if (currentSubject === 'math') {
+                sortedItems.sort((a, b) => getMathContextScore(a.code) - getMathContextScore(b.code));
+                sortedItems.forEach((item, index) => {
+                    const cleanText = item.originalText.replace(/"/g, '');
+                    outputText += `${index + 1}. ${cleanText}\n`;
+                });
+                generateContextMapping(sortedItems);
+            } else {
+                contextMappingSection.classList.add('hidden');
+                if (currentSubject === 'chinese') {
+                    sortedItems.sort((a, b) => a.qNum - b.qNum);
+                    const groupedMap = new Map();
+                    sortedItems.forEach(item => {
+                        const cleanContent = item.chiContent.replace(/"/g, '').trim();
+                        const cleanFocus = item.focus.replace(/"/g, '').trim();
+                        if (!groupedMap.has(cleanContent)) groupedMap.set(cleanContent, new Set());
+                        groupedMap.get(cleanContent).add(cleanFocus);
+                    });
+                    let count = 1;
+                    for (const [content, focusSet] of groupedMap) {
+                        const combinedFocus = smartMergeFocus(focusSet);
+                        outputText += `${count}. ${content} — ${combinedFocus}\n`;
+                        count++;
+                    }
+                } else if (currentSubject === 'english') {
+                    sortedItems.sort((a, b) => a.qNum - b.qNum);
+                    const filteredItems = filterEnglishSubsets(sortedItems);
+                    filteredItems.forEach((item, index) => {
+                        const cleanFocus = item.focus.replace(/"/g, '').trim();
+                        outputText += `${index + 1}. ${cleanFocus}\n`;
+                    });
+                }
+            }
+            resultOutput.value = outputText;
+        });
+
+        // 複製目標
+        copyBtn.addEventListener('click', () => {
+            if (!resultOutput.value) {
+                showAlert("尚未產出任何教學目標清單。");
+                return;
+            }
+            resultOutput.select();
+            navigator.clipboard.writeText(resultOutput.value);
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = `<i class="fas fa-check text-green-500"></i> 已複製！`;
+            setTimeout(() => copyBtn.innerHTML = originalText, 2000);
+        });
+
+        // 下載佐證 CSV
+        exportCsvBtn.addEventListener('click', () => {
+            if (parsedData.length === 0) {
+                showAlert("請先讀取並分析 CSV 檔案。");
+                return;
+            }
+            let csvContent = "\uFEFF";
+            const escapeCSV = (rowArray) => {
+                return rowArray.map(cell => {
+                    let cellStr = String(cell !== undefined && cell !== null ? cell : "");
+                    if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+                        cellStr = '"' + cellStr.replace(/"/g, '""') + '"';
+                    }
+                    return cellStr;
+                }).join(',');
+            };
+
+            let firstDataRowIdx = Math.min(...parsedData.map(p => p.id));
+            for (let i = 0; i < firstDataRowIdx; i++) {
+                csvContent += escapeCSV(rawRows[i]) + "\n";
+            }
+
+            const sortFunc = (items) => {
+                let sorted = [...items];
+                if (currentSubject === 'math') {
+                    sorted.sort((a, b) => getMathContextScore(a.code) - getMathContextScore(b.code));
+                } else {
+                    sorted.sort((a, b) => a.qNum - b.qNum);
+                }
+                return sorted;
+            };
+
+            const selectedItems = parsedData.filter(item => item.selected && !item.isZeroError);
+            const unselectedItems = parsedData.filter(item => !item.selected && !item.isZeroError);
+            const zeroErrorItems = parsedData.filter(item => item.isZeroError);
+
+            const outDataRows = [
+                ...sortFunc(selectedItems),
+                ...sortFunc(unselectedItems),
+                ...sortFunc(zeroErrorItems)
+            ];
+
+            outDataRows.forEach(item => {
+                csvContent += escapeCSV(rawRows[item.id]) + "\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            link.setAttribute("download", `學習扶助分析佐證表_${currentSubject}_${timestamp}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        // 雙系統核心串聯：一鍵將目標注入 Course Planner
+        function syncGoalsToPlanner() {
+            let goalsText = resultOutput.value.trim();
+            if (!goalsText) {
+                // 若尚未手動點擊重組，嘗試自動執行重組
+                const selectedItems = parsedData.filter(item => item.selected && !item.isZeroError);
+                if (selectedItems.length === 0) {
+                    showAlert("請先在步驟 2 勾選需要補救的錯題！");
+                    return;
+                }
+                processContextBtn.click();
+                goalsText = resultOutput.value.trim();
+            }
+
+            // 同步科目與目標
+            appState.objectives = goalsText;
+            document.getElementById('objectives').value = goalsText;
+
+            // 自動適配 Planner 的科目表格樣板
+            if (currentSubject === 'chinese') {
+                appState.format = 'chinese';
+            } else if (currentSubject === 'english') {
+                appState.format = 'english';
+            } else if (currentSubject === 'math') {
+                // 若原本不是數學，預設為學期中學扶班
+                if (!appState.format.startsWith('math')) {
+                    appState.format = 'math_semester_remedial';
+                }
+            }
+            document.getElementById('formatSelect').value = appState.format;
+            updateSemesterOptions();
+
+            // 儲存並渲染
+            saveAndRender();
+            renderLogInputs();
+
+            // 平滑切換至 Planner 分頁
+            switchMainTab('planner');
+            showAlert("已成功將教學目標同步至課程規劃表。\n\n您可以在左側微調學生名單與日誌，右側已自動生成最新的 A4 預覽。");
+        }
+
+
+        // =========================================================================
+        // 模組 2：課程規劃與日誌 (Course Planner 核心資料與 A4 排版)
+        // =========================================================================
+        const templates = {
+            math: {
+                objectives: "1. 認識「千位」的位名，並進行10000以內位值單位的換算。\n2. 認識一位小數，並作比較與加減計算。\n3. 認識整數數線，並在數線上比較兩數大小。",
+                logs: [
+                    { date: "2023-09-05", unit: "數的認識", content: "複習三位數加減法。練習進位加法應用題。", eval: "良好" },
+                    { date: "2023-09-07", unit: "數的認識", content: "教師講解位值概念，並讓學生練習操作錢幣模型。", eval: "尚可" }
+                ]
+            },
+            chinese: {
+                objectives: "1. 1-II-1 聆聽時能讓對方把話說完，並聽出別人所表達的意思。\n2. 4-II-1 認識常用國字至少1,800字，使用1,200字。\n3. 5-II-4 掌握句子和段落的意義與主要概念。",
+                logs: [
+                    { date: "2023-09-05", code: "1", content: "引導學生閱讀課文，圈出不認識的生字。", material: "翰林版國語第三冊", assessment_text: "能正確唸出課文", eval: "良好" },
+                    { date: "2023-09-07", code: "2", content: "利用部件教學法，指導學生記憶生字結構。", material: "自編生字學習單", assessment_text: "能完成生字描寫", eval: "尚可" }
+                ]
+            },
+            english: {
+                objectives: "1. 1-III-1 能聽懂簡易的教室用語。\n2. 2-III-2 能說出課堂中常用的英語詞彙。\n3. 3-III-4 能看懂簡易的英語短文。",
+                logs: [
+                    { date: "2023-09-05", content: "Unit 1: Greetings. Practice saying 'Hello', 'How are you?'.", material: "Follow Me Book 3", eval: "良好" },
+                    { date: "2023-09-07", content: "Alphabet review (A-E). Phonics practice.", material: "Phonics Cards", eval: "良好" }
+                ]
+            }
+        };
+
+        // ==========================================
+        // 日期與學期週數自動計算邏輯
+        // ==========================================
+        function getTodayDateStr() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function getWeeksForSemester(semester) {
+            if (semester === '暑假') return 8;   // 暑假抓 8 週
+            if (semester === '寒假') return 4;   // 寒假抓 4 週
+            return 20;                          // 第一學期、第二學期加 20 週
+        }
+
+        function calculateEndDate(startDateStr, semester) {
+            if (!startDateStr) return '';
+            const weeks = getWeeksForSemester(semester);
+            const parts = startDateStr.split('-').map(Number);
+            const d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+            d.setDate(d.getDate() + (weeks * 7));
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function getDefaultSchoolInfo() {
+            const today = getTodayDateStr();
+            const defaultSemester = "暑假";
+            const endDate = calculateEndDate(today, defaultSemester);
+            const parts = today.split('-').map(Number);
+            const sy = (parts[1] >= 8) ? (parts[0] - 1911) : (parts[0] - 1911 - 1);
+
+            return {
+                schoolName: "彰化縣三春國民小學",
+                schoolYear: sy.toString(),
+                semester: defaultSemester,
+                grade: "六",
+                className: "六年級數學班",
+                teacher: "黃奕豪",
+                dateRange: `${formatDateToROC(today)}至${formatDateToROC(endDate)}`,
+                startDate: today,
+                endDate: endDate,
+                classTime: "每週二、四 16:00-17:20",
+                weekdays: [2, 4],
+                startTime: "16:00",
+                endTime: "17:20",
+                totalSessions: "40"
+            };
+        }
+
+        const defaultState = {
+            theme: 'dark',
+            fontSize: 'md',
+            format: 'math_vacation',
+            schoolInfo: getDefaultSchoolInfo(),
+            objectives: templates.math.objectives,
+            students: [
+                { name: "李小華", score1: "55", score2: "70" },
+                { name: "張志明", score1: "48", score2: "65" },
+                { name: "陳淑芬", score1: "60", score2: "82" }
+            ],
+            logs: JSON.parse(JSON.stringify(templates.math.logs))
+        };
+
+        let appState = JSON.parse(localStorage.getItem('mathPlanState')) || JSON.parse(JSON.stringify(defaultState));
+
+        // 升級相容機制：若開課日期為過去寫死的 2023-09-01 或未設定，自動更新為使用者當前日期並依學期重算結課日期
+        if (!appState.schoolInfo.startDate || appState.schoolInfo.startDate === '2023-09-01') {
+            appState.schoolInfo.startDate = getTodayDateStr();
+            appState.schoolInfo.endDate = calculateEndDate(appState.schoolInfo.startDate, appState.schoolInfo.semester || '暑假');
+            const parts = appState.schoolInfo.startDate.split('-').map(Number);
+            const sy = (parts[1] >= 8) ? (parts[0] - 1911) : (parts[0] - 1911 - 1);
+            appState.schoolInfo.schoolYear = sy.toString();
+            appState.schoolInfo.dateRange = `${formatDateToROC(appState.schoolInfo.startDate)}至${formatDateToROC(appState.schoolInfo.endDate)}`;
+        }
+
+        function formatDateToROC(dateStr) {
+            if (!dateStr) return '';
+            try {
+                const parts = dateStr.split('-');
+                if (parts.length !== 3) return dateStr;
+                const year = parseInt(parts[0]) - 1911;
+                const month = parseInt(parts[1]);
+                const day = parseInt(parts[2]);
+                return `${year}年${month}月${day}日`;
+            } catch (e) { return dateStr; }
+        }
+
+        function getObjectiveCodes(text) {
+            if (!text) return [];
+            const count = text.split('\n').filter(line => line.trim().length > 0).length;
+            const codes = [];
+            for (let i = 1; i <= count; i++) codes.push(i.toString());
+            for (let i = 1; i < count; i++) {
+                for (let j = i + 1; j <= count; j++) codes.push(`${i}~${j}`);
+            }
+            return codes;
+        }
+
+        function getCleanObjectives(text) {
+            if (!text) return [];
+            const lines = text.split('\n').filter(line => line.trim().length > 0);
+            return lines.map(line => {
+                return line.replace(/^[\d一二三四五六七八九十]+[\.\、\s]+|^\(\d+\)\s*|^[\d]+\s+/, '').trim();
+            });
+        }
+
+        function updateState(section, key, value) {
+            if (section === 'schoolInfo') appState.schoolInfo[key] = value;
+            else if (section === 'objectives') {
+                appState.objectives = value;
+                renderLogInputs();
+            } else if (section === 'format') appState.format = value;
+            saveAndRender();
+        }
+
+        function onStartDateChange() {
+            const startInput = document.getElementById('startDate');
+            if (!startInput) return;
+            const start = startInput.value;
+            appState.schoolInfo.startDate = start;
+            if (start) {
+                // 自動依據學期計算結課日期：第一/第二學期加20週，暑假加8週，寒假加4週
+                const calculatedEnd = calculateEndDate(start, appState.schoolInfo.semester);
+                appState.schoolInfo.endDate = calculatedEnd;
+                const endInput = document.getElementById('endDate');
+                if (endInput) endInput.value = calculatedEnd;
+            }
+            updateDateRange();
+        }
+
+        function onSemesterChange(newSemester) {
+            updateState('schoolInfo', 'semester', newSemester);
+            if (appState.schoolInfo.startDate) {
+                const calculatedEnd = calculateEndDate(appState.schoolInfo.startDate, newSemester);
+                appState.schoolInfo.endDate = calculatedEnd;
+                const endInput = document.getElementById('endDate');
+                if (endInput) endInput.value = calculatedEnd;
+                updateDateRange();
+            }
+        }
+
+        function updateDateRange() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            appState.schoolInfo.startDate = start;
+            appState.schoolInfo.endDate = end;
+
+            if (start) {
+                const parts = start.split('-');
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]);
+                let schoolYearVal = (month >= 8) ? (year - 1911) : (year - 1911 - 1);
+                appState.schoolInfo.schoolYear = schoolYearVal.toString();
+                const schoolYearInput = document.getElementById('schoolYear');
+                if (schoolYearInput) schoolYearInput.value = schoolYearVal;
+            }
+
+            const rocStart = start ? formatDateToROC(start) : '○年○月○日';
+            const rocEnd = end ? formatDateToROC(end) : '○年○月○日';
+            appState.schoolInfo.dateRange = `${rocStart}至${rocEnd}`;
+            saveAndRender();
+        }
+
+        function handleFormatChange(newValue) {
+            const previousValue = appState.format;
+            showConfirm(
+                "切換格式將載入該科目預設範本，是否繼續？",
+                () => { updateFormat(newValue, true); },
+                () => { document.getElementById('formatSelect').value = previousValue; }
+            );
+        }
+
+        function updateFormat(value, loadTemplate = false) {
+            appState.format = value;
+            if (loadTemplate) {
+                let templateType = 'math';
+                if (value === 'chinese') templateType = 'chinese';
+                if (value === 'english') templateType = 'english';
+                appState.objectives = templates[templateType].objectives;
+                appState.logs = JSON.parse(JSON.stringify(templates[templateType].logs));
+                document.getElementById('objectives').value = appState.objectives;
+            }
+            updateSemesterOptions();
+            renderLogInputs();
+            saveAndRender();
+        }
+
+        // ==========================================
+        // 學期/假期選項動態聯動與防呆
+        // ==========================================
+        function updateSemesterOptions() {
+            const semesterSelect = document.getElementById('semester');
+            if (!semesterSelect) return;
+
+            const format = appState.format || 'math_vacation';
+            let availableOptions = [];
+
+            if (format === 'math_vacation') {
+                // 數學 - 寒暑假學扶班：僅限暑假、寒假
+                availableOptions = ['暑假', '寒假'];
+            } else if (format === 'math_semester_remedial' || format === 'math_semester_original') {
+                // 數學 - 學期中樣板：僅限第一學期、第二學期
+                availableOptions = ['第一學期', '第二學期'];
+            } else {
+                // 國語、英語（未分學期中或寒暑假）：一律顯示全部 4 個選項
+                availableOptions = ['第一學期', '第二學期', '暑假', '寒假'];
+            }
+
+            // 防呆檢查：若當前選擇的學期不在可用清單中，自動切換為該樣板的第一個合理預設值
+            let currentSemester = (appState.schoolInfo && appState.schoolInfo.semester) ? appState.schoolInfo.semester : '';
+            if (!availableOptions.includes(currentSemester)) {
+                currentSemester = availableOptions[0];
+                appState.schoolInfo.semester = currentSemester;
+                if (appState.schoolInfo.startDate) {
+                    const calculatedEnd = calculateEndDate(appState.schoolInfo.startDate, currentSemester);
+                    appState.schoolInfo.endDate = calculatedEnd;
+                    const endInput = document.getElementById('endDate');
+                    if (endInput) endInput.value = calculatedEnd;
+                    updateDateRange();
+                }
+            }
+
+            semesterSelect.innerHTML = availableOptions.map(opt => {
+                const isSel = opt === currentSemester ? 'selected' : '';
+                return `<option value="${opt}" ${isSel} class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">${opt}</option>`;
+            }).join('');
+
+            semesterSelect.value = currentSemester;
+        }
+
+        function updateStudent(index, key, value) {
+            appState.students[index][key] = value;
+            saveAndRender();
+        }
+
+        function addStudent() {
+            appState.students.push({ name: "", score1: "", score2: "" });
+            renderStudentInputs();
+            saveAndRender();
+        }
+
+        function confirmRemoveStudent(index) {
+            showConfirm("確定刪除此學生資料？", () => {
+                appState.students.splice(index, 1);
+                renderStudentInputs();
+                saveAndRender();
+            });
+        }
+
+        function updateLog(index, key, value) {
+            if (key === 'appendContent') {
+                const cleanVal = (value || "").trim();
+                if (!cleanVal) return;
+                const currentContent = appState.logs[index].content || "";
+
+                // 防呆機制：若當前教學內容已包含此目標，則不重複追加
+                if (!currentContent.includes(cleanVal)) {
+                    appState.logs[index].content = currentContent ? `${currentContent}\n${cleanVal}` : cleanVal;
+                    saveAndRender();
+                }
+                renderLogInputs();
+            } else {
+                appState.logs[index][key] = value;
+                saveAndRender();
+                if (key === 'content') {
+                    updateLogGoalSelect(index);
+                }
+            }
+        }
+
+        function updateLogGoalSelect(index) {
+            const sel = document.getElementById(`log-goal-select-${index}`);
+            if (!sel) return;
+            const currentContent = appState.logs[index]?.content || "";
+            let availableCount = 0;
+            for (let i = 1; i < sel.options.length; i++) {
+                const opt = sel.options[i];
+                const rawVal = (opt.getAttribute('data-raw') || opt.value || "").trim();
+                if (!rawVal) continue;
+                const isAdded = currentContent.includes(rawVal);
+                if (isAdded) {
+                    opt.disabled = true;
+                    opt.textContent = `[已帶入] ${rawVal}`;
+                    opt.className = "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-1";
+                } else {
+                    opt.disabled = false;
+                    opt.textContent = rawVal;
+                    opt.className = "bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 py-1";
+                    availableCount++;
+                }
+            }
+            if (sel.options.length > 0) {
+                sel.options[0].textContent = availableCount === 0 ? '此堂課已帶入所有教學目標' : '點擊選擇欲帶入的教學目標...';
+            }
+            const badge = document.getElementById(`log-goal-status-${index}`);
+            if (badge) {
+                badge.innerHTML = availableCount === 0 
+                    ? '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 全部目標已帶入</span>' 
+                    : '可多次選取追加不同目標';
+            }
+        }
+
+        // ==========================================
+        // 年級複選處理邏輯 (混齡班支援)
+        // ==========================================
+        const GRADE_OPTIONS = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
+
+        function getSelectedGrades() {
+            const raw = (appState.schoolInfo && appState.schoolInfo.grade) ? appState.schoolInfo.grade : '';
+            return GRADE_OPTIONS.filter(g => raw.includes(g));
+        }
+
+        function toggleGrade(grade) {
+            let current = getSelectedGrades();
+            if (current.includes(grade)) {
+                current = current.filter(g => g !== grade);
+            } else {
+                current.push(grade);
+                current.sort((a, b) => GRADE_OPTIONS.indexOf(a) - GRADE_OPTIONS.indexOf(b));
+            }
+            appState.schoolInfo.grade = current.join('、');
+            renderGradeChips();
+            saveAndRender();
+        }
+
+        function renderGradeChips() {
+            const container = document.getElementById('gradeChipsContainer');
+            const summary = document.getElementById('gradeSummary');
+            if (!container) return;
+            const selected = getSelectedGrades();
+            if (summary) {
+                summary.textContent = selected.length > 0 ? `已選：${selected.join('、')} 年級` : '尚未選取年級';
+            }
+            container.innerHTML = GRADE_OPTIONS.map(g => {
+                const isSelected = selected.includes(g);
+                const activeClass = isSelected
+                    ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-xs'
+                    : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-blue-400';
+                return `<button type="button" onclick="toggleGrade('${g}')" class="px-2.5 py-1 text-xs rounded-lg border transition ${activeClass}">
+                    ${g}年級
+                </button>`;
+            }).join('');
+        }
+
+        // ==========================================
+        // 上課時段與星期處理邏輯
+        // ==========================================
+        const WEEKDAY_OPTIONS = [
+            { label: '週一', val: 1, name: '一' },
+            { label: '週二', val: 2, name: '二' },
+            { label: '週三', val: 3, name: '三' },
+            { label: '週四', val: 4, name: '四' },
+            { label: '週五', val: 5, name: '五' },
+            { label: '週六', val: 6, name: '六' },
+            { label: '週日', val: 0, name: '日' }
+        ];
+
+        function getSelectedWeekdays() {
+            if (appState.schoolInfo && Array.isArray(appState.schoolInfo.weekdays) && appState.schoolInfo.weekdays.length > 0) {
+                return appState.schoolInfo.weekdays;
+            }
+            // 從既有 classTime 解析
+            const ct = (appState.schoolInfo && appState.schoolInfo.classTime) ? appState.schoolInfo.classTime : '';
+            const res = [];
+            if (ct.includes('一')) res.push(1);
+            if (ct.includes('二')) res.push(2);
+            if (ct.includes('三')) res.push(3);
+            if (ct.includes('四')) res.push(4);
+            if (ct.includes('五')) res.push(5);
+            if (ct.includes('六')) res.push(6);
+            if (ct.includes('日') || ct.includes('天')) res.push(0);
+
+            if (!appState.schoolInfo.weekdays || appState.schoolInfo.weekdays.length === 0) {
+                appState.schoolInfo.weekdays = res;
+            }
+            return res;
+        }
+
+        function toggleWeekday(val) {
+            let current = [...getSelectedWeekdays()];
+            if (current.includes(val)) {
+                current = current.filter(d => d !== val);
+            } else {
+                current.push(val);
+                current.sort((a, b) => {
+                    const orderA = a === 0 ? 7 : a;
+                    const orderB = b === 0 ? 7 : b;
+                    return orderA - orderB;
+                });
+            }
+            appState.schoolInfo.weekdays = current;
+            updateClassTimeString();
+        }
+
+        function onClassTimeChange() {
+            const sInput = document.getElementById('classStartTime');
+            const eInput = document.getElementById('classEndTime');
+            if (sInput) appState.schoolInfo.startTime = sInput.value;
+            if (eInput) appState.schoolInfo.endTime = eInput.value;
+            updateClassTimeString();
+        }
+
+        function updateClassTimeString() {
+            const days = getSelectedWeekdays();
+            const st = appState.schoolInfo.startTime || '';
+            const et = appState.schoolInfo.endTime || '';
+
+            let daysStr = '';
+            if (days.length > 0) {
+                const dayNames = days.map(d => {
+                    const item = WEEKDAY_OPTIONS.find(w => w.val === d);
+                    return item ? item.name : '';
+                }).filter(Boolean);
+                daysStr = `每週${dayNames.join('、')}`;
+            }
+
+            let timeRangeStr = '';
+            if (st && et) {
+                timeRangeStr = `${st}-${et}`;
+            } else if (st) {
+                timeRangeStr = `${st}`;
+            }
+
+            const fullStr = [daysStr, timeRangeStr].filter(Boolean).join(' ');
+            appState.schoolInfo.classTime = fullStr;
+
+            const preview = document.getElementById('classTimePreview');
+            if (preview) preview.textContent = fullStr || '尚未設定完整時段';
+
+            renderWeekdayChips();
+            saveAndRender();
+        }
+
+        function renderWeekdayChips() {
+            const container = document.getElementById('weekdayChipsContainer');
+            if (!container) return;
+            const selected = getSelectedWeekdays();
+            container.innerHTML = WEEKDAY_OPTIONS.map(w => {
+                const isSelected = selected.includes(w.val);
+                const activeClass = isSelected
+                    ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-xs'
+                    : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-blue-400';
+                return `<button type="button" onclick="toggleWeekday(${w.val})" class="px-2.5 py-1 text-xs rounded-lg border transition ${activeClass}">
+                    ${w.label}
+                </button>`;
+            }).join('');
+        }
+
+        function initClassTimeFromState() {
+            if (!appState.schoolInfo.weekdays || !Array.isArray(appState.schoolInfo.weekdays)) {
+                getSelectedWeekdays();
+            }
+            if (!appState.schoolInfo.startTime || !appState.schoolInfo.endTime) {
+                const ct = appState.schoolInfo.classTime || '';
+                const m = ct.match(/(\d{1,2}:\d{2})\s*[-~至]\s*(\d{1,2}:\d{2})/);
+                if (m) {
+                    appState.schoolInfo.startTime = m[1].padStart(5, '0');
+                    appState.schoolInfo.endTime = m[2].padStart(5, '0');
+                } else {
+                    appState.schoolInfo.startTime = "16:00";
+                    appState.schoolInfo.endTime = "17:20";
+                }
+            }
+            const sInput = document.getElementById('classStartTime');
+            const eInput = document.getElementById('classEndTime');
+            if (sInput) sInput.value = appState.schoolInfo.startTime || '';
+            if (eInput) eInput.value = appState.schoolInfo.endTime || '';
+            const preview = document.getElementById('classTimePreview');
+            if (preview) preview.textContent = appState.schoolInfo.classTime || '尚未設定完整時段';
+        }
+
+        // ==========================================
+        // 智慧課堂排程演算法與自動開課
+        // ==========================================
+        function calculateScheduleDates(startDateStr, weekdays, count) {
+            if (!startDateStr || !weekdays || weekdays.length === 0 || count <= 0) return [];
+            const dates = [];
+            const parts = startDateStr.split('-').map(Number);
+            let curr = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+            let safetyLimit = 0;
+            while (dates.length < count && safetyLimit < 1000) {
+                safetyLimit++;
+                if (weekdays.includes(curr.getDay())) {
+                    const y = curr.getFullYear();
+                    const m = String(curr.getMonth() + 1).padStart(2, '0');
+                    const d = String(curr.getDate()).padStart(2, '0');
+                    dates.push(`${y}-${m}-${d}`);
+                }
+                curr.setDate(curr.getDate() + 1);
+            }
+            return dates;
+        }
+
+        function getNextScheduledDate(lastDateStr, weekdays) {
+            if (!weekdays || weekdays.length === 0) {
+                if (!lastDateStr) return new Date().toISOString().split('T')[0];
+                const parts = lastDateStr.split('-').map(Number);
+                const dt = new Date(parts[0], parts[1] - 1, parts[2] + 7, 12, 0, 0);
+                return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+            }
+            const baseStr = lastDateStr || new Date().toISOString().split('T')[0];
+            const parts = baseStr.split('-').map(Number);
+            let curr = new Date(parts[0], parts[1] - 1, parts[2] + 1, 12, 0, 0);
+            for (let i = 0; i < 30; i++) {
+                if (weekdays.includes(curr.getDay())) {
+                    const yStr = curr.getFullYear();
+                    const mStr = String(curr.getMonth() + 1).padStart(2, '0');
+                    const dStr = String(curr.getDate()).padStart(2, '0');
+                    return `${yStr}-${mStr}-${dStr}`;
+                }
+                curr.setDate(curr.getDate() + 1);
+            }
+            return lastDateStr;
+        }
+
+        function autoGenerateScheduleLogs() {
+            const startDate = appState.schoolInfo.startDate;
+            const weekdays = getSelectedWeekdays();
+            const total = parseInt(appState.schoolInfo.totalSessions);
+
+            if (!startDate) {
+                showAlert("請先於基本行政資料中設定「開課日期」！");
+                return;
+            }
+            if (weekdays.length === 0) {
+                showAlert("請先點選「上課星期」（如：週二、週四）！");
+                return;
+            }
+            if (!total || total <= 0) {
+                showAlert("請填寫大於 0 的「總節數」！");
+                return;
+            }
+
+            const dates = calculateScheduleDates(startDate, weekdays, total);
+            if (dates.length === 0) {
+                showAlert("無法根據指定時段計算日期，請確認開課日期與時段設定。");
+                return;
+            }
+
+            const executeAutoSchedule = () => {
+                const currentLogs = appState.logs || [];
+                const newLogs = [];
+
+                for (let i = 0; i < total; i++) {
+                    const existingLog = currentLogs[i];
+                    if (existingLog) {
+                        newLogs.push({
+                            ...existingLog,
+                            date: dates[i]
+                        });
+                    } else {
+                        newLogs.push({
+                            date: dates[i],
+                            unit: "",
+                            content: "",
+                            eval: "良好",
+                            code: "",
+                            material: "",
+                            assessment_text: ""
+                        });
+                    }
+                }
+
+                appState.logs = newLogs;
+                appState.schoolInfo.endDate = dates[dates.length - 1];
+                const endInput = document.getElementById('endDate');
+                if (endInput) endInput.value = appState.schoolInfo.endDate;
+                updateDateRange();
+
+                renderLogInputs();
+                saveAndRender();
+                showAlert(`已成功排定 ${total} 堂課的準確日期！\n期程為 ${dates[0]} 至 ${dates[dates.length - 1]}（原有課堂教學內容均已妥善保留）。`);
+            };
+
+            if (appState.logs && appState.logs.length > 0) {
+                showConfirm(
+                    `目前已有 ${appState.logs.length} 堂課紀錄。\n系統將依開課日期與授課星期為您自動更新 ${total} 堂課的日期（已填寫的教學內容將依序保留），是否確認排程？`,
+                    executeAutoSchedule
+                );
+            } else {
+                executeAutoSchedule();
+            }
+        }
+
+        function addLog() {
+            const weekdays = getSelectedWeekdays();
+            let nextDate = "";
+            if (appState.logs.length > 0) {
+                const lastLog = appState.logs[appState.logs.length - 1];
+                if (lastLog.date) {
+                    nextDate = getNextScheduledDate(lastLog.date, weekdays);
+                }
+            } else if (appState.schoolInfo.startDate) {
+                const dates = calculateScheduleDates(appState.schoolInfo.startDate, weekdays, 1);
+                if (dates.length > 0) nextDate = dates[0];
+            }
+            if (!nextDate) {
+                const d = new Date();
+                nextDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            }
+            appState.logs.push({ date: nextDate, unit: "", content: "", eval: "良好", code: "", material: "", assessment_text: "" });
+
+            appState.schoolInfo.totalSessions = appState.logs.length.toString();
+            const totalInput = document.getElementById('totalSessions');
+            if (totalInput) totalInput.value = appState.schoolInfo.totalSessions;
+
+            if (nextDate && (!appState.schoolInfo.endDate || nextDate > appState.schoolInfo.endDate)) {
+                appState.schoolInfo.endDate = nextDate;
+                const endInput = document.getElementById('endDate');
+                if (endInput) endInput.value = nextDate;
+                updateDateRange();
+            }
+
+            renderLogInputs();
+            saveAndRender();
+        }
+
+        function confirmRemoveLog(index) {
+            showConfirm("確定刪除此日誌？", () => {
+                appState.logs.splice(index, 1);
+                appState.schoolInfo.totalSessions = appState.logs.length.toString();
+                const totalInput = document.getElementById('totalSessions');
+                if (totalInput) totalInput.value = appState.schoolInfo.totalSessions;
+                if (appState.logs.length > 0) {
+                    const lastDate = appState.logs[appState.logs.length - 1].date;
+                    if (lastDate) {
+                        appState.schoolInfo.endDate = lastDate;
+                        const endInput = document.getElementById('endDate');
+                        if (endInput) endInput.value = lastDate;
+                        updateDateRange();
+                    }
+                }
+                renderLogInputs();
+                saveAndRender();
+            });
+        }
+
+        function saveAndRender() {
+            localStorage.setItem('mathPlanState', JSON.stringify(appState));
+            renderPreview();
+        }
+
+        function exportJSON() {
+            try {
+                const dataStr = JSON.stringify(appState, null, 2);
+                const blob = new Blob([dataStr], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', url);
+                linkElement.setAttribute('download', `${appState.schoolInfo.className || '課程規劃'}_設定檔.json`);
+                document.body.appendChild(linkElement);
+                linkElement.click();
+                document.body.removeChild(linkElement);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                showAlert("匯出設定時發生錯誤。");
+            }
+        }
+
+        function importJSON() { document.getElementById('fileInput').click(); }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedState = JSON.parse(e.target.result);
+                    if (importedState && importedState.schoolInfo && importedState.logs) {
+                        appState = importedState;
+                        applyStateToUI();
+                        renderStudentInputs();
+                        renderLogInputs();
+                        saveAndRender();
+                        showAlert("設定檔已成功匯入！");
+                    } else {
+                        showAlert("匯入失敗：檔案格式不符合本系統。");
+                    }
+                } catch (err) {
+                    showAlert("匯入失敗：非有效的 JSON 檔案。");
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function confirmResetData() {
+            showConfirm("確定要清除所有資料並重置為預設範例嗎？", () => {
+                const currentTheme = appState.theme;
+                const currentFontSize = appState.fontSize || 'md';
+                appState = JSON.parse(JSON.stringify(defaultState));
+                appState.schoolInfo = getDefaultSchoolInfo();
+                appState.theme = currentTheme;
+                appState.fontSize = currentFontSize;
+                applyStateToUI();
+                renderStudentInputs();
+                renderLogInputs();
+                saveAndRender();
+            });
+        }
+
+        function applyStateToUI() {
+            const getElem = id => document.getElementById(id);
+            if (getElem('formatSelect')) getElem('formatSelect').value = appState.format || 'math_vacation';
+            if (getElem('schoolName')) getElem('schoolName').value = appState.schoolInfo.schoolName || '';
+            if (getElem('schoolYear')) getElem('schoolYear').value = appState.schoolInfo.schoolYear || '';
+            if (getElem('className')) getElem('className').value = appState.schoolInfo.className || '';
+            if (getElem('teacher')) getElem('teacher').value = appState.schoolInfo.teacher || '';
+            if (getElem('startDate')) getElem('startDate').value = appState.schoolInfo.startDate || '';
+            if (getElem('endDate')) getElem('endDate').value = appState.schoolInfo.endDate || '';
+            if (getElem('totalSessions')) getElem('totalSessions').value = appState.schoolInfo.totalSessions || '';
+            if (getElem('objectives')) getElem('objectives').value = appState.objectives || '';
+
+            // 更新學期/假期選單（依樣板動態篩選與防呆）
+            updateSemesterOptions();
+
+            // 更新年級複選標籤
+            renderGradeChips();
+
+            // 更新上課星期標籤與時段
+            initClassTimeFromState();
+            renderWeekdayChips();
+        }
+
+        function renderStudentInputs() {
+            const container = document.getElementById('student-list');
+            container.innerHTML = '';
+            appState.students.forEach((student, index) => {
+                const div = document.createElement('div');
+                div.className = "flex gap-2 items-center bg-gray-50/80 dark:bg-gray-900/80 p-2 rounded-lg border border-gray-200 dark:border-gray-700/80 shadow-2xs";
+                div.innerHTML = `
+                    <span class="text-xs font-bold text-gray-400 dark:text-gray-500 w-5 text-center">${index + 1}</span>
+                    <input type="text" value="${student.name}" oninput="updateStudent(${index}, 'name', this.value)" class="flex-1 min-w-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" placeholder="姓名">
+                    <input type="text" value="${student.score1}" oninput="updateStudent(${index}, 'score1', this.value)" class="w-14 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded text-center focus:ring-1 focus:ring-blue-500 outline-none" placeholder="前測">
+                    <input type="text" value="${student.score2}" oninput="updateStudent(${index}, 'score2', this.value)" class="w-14 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded text-center focus:ring-1 focus:ring-blue-500 outline-none" placeholder="後測">
+                    <button onclick="confirmRemoveStudent(${index})" class="text-gray-400 hover:text-red-500 dark:hover:text-red-400 px-1.5 transition" title="刪除學生"><i class="fas fa-times"></i></button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function renderLogInputs() {
+            const container = document.getElementById('log-list');
+            container.innerHTML = '';
+            const format = appState.format;
+            const isOriginalClass = format === 'math_semester_original';
+            const isVacation = format === 'math_vacation';
+            const isChinese = format === 'chinese';
+            const isEnglish = format === 'english';
+
+            let codeOptions = isChinese ? getObjectiveCodes(appState.objectives) : [];
+            let objectiveTexts = !isChinese ? getCleanObjectives(appState.objectives) : [];
+
+            appState.logs.forEach((log, index) => {
+                const div = document.createElement('div');
+                div.className = "bg-gray-50/80 dark:bg-gray-900/80 p-3 rounded-xl border border-gray-200 dark:border-gray-700/80 shadow-2xs relative group space-y-2.5";
+
+                let quickSelectHTML = '';
+                if (objectiveTexts.length > 0) {
+                    const currentContent = log.content || '';
+                    const availableCount = objectiveTexts.filter(t => !currentContent.includes(t.trim())).length;
+                    const allAdded = availableCount === 0;
+
+                    quickSelectHTML = `
+                        <div class="bg-slate-100/80 dark:bg-gray-800/90 p-2.5 rounded-lg border border-slate-200 dark:border-gray-700 space-y-1.5 shadow-2xs">
+                            <div class="flex items-center justify-between text-[11px]">
+                                <label class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                                    <i class="fas fa-bullseye text-blue-600 dark:text-blue-400 text-xs"></i>
+                                    <span>帶入教學目標至內容</span>
+                                </label>
+                                <span id="log-goal-status-${index}" class="text-[10px] text-slate-500 dark:text-gray-400">
+                                    ${allAdded ? '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 全部目標已帶入</span>' : '可多次選取追加不同目標'}
+                                </span>
+                            </div>
+                            <select id="log-goal-select-${index}" onchange="updateLog(${index}, 'appendContent', this.value); this.value='';" class="w-full bg-white dark:bg-gray-900 hover:bg-slate-50 dark:hover:bg-gray-850 border border-slate-300 dark:border-gray-600 text-slate-800 dark:text-gray-100 text-xs px-2.5 py-1.5 rounded-md cursor-pointer focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-colors">
+                                <option value="" class="bg-white dark:bg-gray-900 text-slate-400 dark:text-gray-500">
+                                    ${allAdded ? '此堂課已帶入所有教學目標' : '點擊選擇欲帶入的教學目標...'}
+                                </option>
+                                ${objectiveTexts.map(text => {
+                                    const cleanText = text.trim();
+                                    const isAdded = currentContent.includes(cleanText);
+                                    if (isAdded) {
+                                        return `<option value="${text}" data-raw="${text}" disabled class="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-1">[已帶入] ${text}</option>`;
+                                    } else {
+                                        return `<option value="${text}" data-raw="${text}" class="bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 py-1">${text}</option>`;
+                                    }
+                                }).join('')}
+                            </select>
+                        </div>
+                    `;
+                }
+
+                let inputsHTML = '';
+                if (isChinese) {
+                    let codeSelectHTML = `<select onchange="updateLog(${index}, 'code', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">`;
+                    codeSelectHTML += `<option value="" class="bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">代碼</option>`;
+                    codeOptions.forEach(c => {
+                        const selected = log.code === c ? 'selected' : '';
+                        codeSelectHTML += `<option value="${c}" ${selected} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">${c}</option>`;
+                    });
+                    codeSelectHTML += `</select>`;
+
+                    inputsHTML = `
+                        <div class="grid grid-cols-6 gap-2">
+                            <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
+                            ${codeSelectHTML}
+                            <input type="text" value="${log.material || ''}" oninput="updateLog(${index}, 'material', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" placeholder="教材選用">
+                        </div>
+                        <div class="grid grid-cols-6 gap-2">
+                            <textarea oninput="updateLog(${index}, 'content', this.value)" class="col-span-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="教學/學習策略">${log.content}</textarea>
+                            <select onchange="updateLog(${index}, 'eval', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
+                                <option value="良好" ${log.eval === '良好' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">良好</option>
+                                <option value="尚可" ${log.eval === '尚可' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">尚可</option>
+                                <option value="待改進" ${log.eval === '待改進' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">待改進</option>
+                            </select>
+                        </div>
+                    `;
+                } else if (isEnglish) {
+                    inputsHTML = `
+                        ${quickSelectHTML}
+                        <div class="grid grid-cols-6 gap-2">
+                            <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
+                            <input type="text" value="${log.material || ''}" oninput="updateLog(${index}, 'material', this.value)" class="col-span-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" placeholder="教材選用">
+                        </div>
+                        <div class="grid grid-cols-6 gap-2">
+                            <textarea oninput="updateLog(${index}, 'content', this.value)" class="col-span-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="教學內容">${log.content}</textarea>
+                            <select onchange="updateLog(${index}, 'eval', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
+                                <option value="良好" ${log.eval === '良好' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">良好</option>
+                                <option value="尚可" ${log.eval === '尚可' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">尚可</option>
+                                <option value="待改進" ${log.eval === '待改進' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">待改進</option>
+                            </select>
+                        </div>
+                    `;
+                } else if (isVacation) {
+                    inputsHTML = `
+                        ${quickSelectHTML}
+                        <div class="grid grid-cols-6 gap-2">
+                            <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="col-span-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
+                            <select onchange="updateLog(${index}, 'eval', this.value)" class="col-span-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
+                                <option value="良好" ${log.eval === '良好' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">良好</option>
+                                <option value="尚可" ${log.eval === '尚可' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">尚可</option>
+                                <option value="待改進" ${log.eval === '待改進' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">待改進</option>
+                            </select>
+                        </div>
+                        <textarea oninput="updateLog(${index}, 'content', this.value)" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="教學內容">${log.content}</textarea>
+                    `;
+                } else {
+                    let dateStyle = isOriginalClass ? 'display: none;' : '';
+                    let dateClass = isOriginalClass ? '' : 'col-span-2';
+                    let unitClass = isOriginalClass ? 'col-span-4' : 'col-span-2';
+                    inputsHTML = `
+                        ${quickSelectHTML}
+                        <div class="grid grid-cols-6 gap-2">
+                            <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="${dateClass} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" style="${dateStyle}">
+                            <input type="text" value="${log.unit || ''}" oninput="updateLog(${index}, 'unit', this.value)" class="${unitClass} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" placeholder="單元名稱">
+                            <select onchange="updateLog(${index}, 'eval', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
+                                <option value="良好" ${log.eval === '良好' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">良好</option>
+                                <option value="尚可" ${log.eval === '尚可' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">尚可</option>
+                                <option value="待改進" ${log.eval === '待改進' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">待改進</option>
+                            </select>
+                        </div>
+                        <textarea oninput="updateLog(${index}, 'content', this.value)" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="學習扶助教學內容">${log.content}</textarea>
+                    `;
+                }
+
+                div.innerHTML = inputsHTML + `
+                    <div class="flex justify-end pt-0.5">
+                        <button onclick="confirmRemoveLog(${index})" class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition inline-flex items-center gap-1 font-medium">
+                            <i class="fas fa-trash-alt"></i> 刪除此堂課
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // ==========================================
+        // 擬真 A4 渲染與智慧分頁演算法
+        // ==========================================
+        function createNewPage() {
+            const page = document.createElement('div');
+            page.className = "a4-paper";
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = "page-content-wrapper";
+            page.appendChild(contentWrapper);
+            return { page, contentWrapper };
+        }
+
+        function hasOverflowed(wrapper, pageElement) {
+            const pageStyle = window.getComputedStyle(pageElement);
+            const maxContentHeight = pageElement.clientHeight 
+                                   - parseFloat(pageStyle.paddingTop) 
+                                   - parseFloat(pageStyle.paddingBottom);
+            return wrapper.offsetHeight > (maxContentHeight - 5);
+        }
+
+        function formatDateForTable(dateStr) {
+            if (!dateStr) return '';
+            if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const parts = dateStr.split('-');
+                return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+            }
+            return dateStr;
+        }
+
+        function formatTableCellText(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/\r?\n/g, '<br>');
+        }
+
+        function renderPreview() {
+            const container = document.getElementById('preview-container');
+            container.innerHTML = '';
+
+            const { schoolInfo, objectives, students, logs, format } = appState;
+
+            // 學生表格每 6 人一組
+            const chunkSize = 6;
+            let studentTablesHTML = '';
+            const studentChunks = [];
+            if (students.length === 0) studentChunks.push([]);
+            else for (let i = 0; i < students.length; i += chunkSize) studentChunks.push(students.slice(i, i + chunkSize));
+
+            studentChunks.forEach((chunk, chunkIndex) => {
+                const paddedChunk = [...chunk];
+                while(paddedChunk.length < 6) paddedChunk.push({ name: "", score1: "", score2: "" });
+
+                let numRow = `<td class="bg-gray-field" style="width: 15%;">學生編號</td>`;
+                let nameRow = `<td class="bg-gray-field">學生姓名</td>`;
+                let s1Row = `<td class="bg-gray-field">前測/期中<br>測驗成績</td>`;
+                let s2Row = `<td class="bg-gray-field">後測/期末<br>測驗成績</td>`;
+
+                paddedChunk.forEach((s, i) => {
+                    const num = (chunkIndex * chunkSize) + i + 1;
+                    const showNum = (chunkIndex * chunkSize) + i < students.length ? num : "";
+                    numRow += `<td class="text-center">${showNum}</td>`;
+                    nameRow += `<td class="text-center h-8">${s.name}</td>`;
+                    s1Row += `<td class="text-center">${s.score1}</td>`;
+                    s2Row += `<td class="text-center">${s.score2}</td>`;
+                });
+
+                studentTablesHTML += `<table class="preview-table" style="margin-bottom: 5px;"><tr>${numRow}</tr><tr>${nameRow}</tr><tr>${s1Row}</tr><tr>${s2Row}</tr></table>`;
+            });
+
+            let titleText = "數學課程規劃與日誌";
+            if (format === 'math_semester_original') titleText = "數學簡要課程規劃";
+            if (format === 'chinese') titleText = "國語課程規劃與日誌";
+            if (format === 'english') titleText = "英語課程規劃與日誌";
+
+            const headerHTML = `
+                <div class="text-center font-bold text-xl mb-1">
+                    ${schoolInfo.schoolName} ${schoolInfo.schoolYear}學年度 ${schoolInfo.semester} 「學習扶助實施方案」
+                </div>
+                <div class="text-center font-bold text-2xl mb-3 border-b-2 border-black pb-2 inline-block w-full">
+                    ${titleText}
+                </div>
+                <table class="preview-table">
+                    <colgroup>
+                        <col style="width: 16%"> 
+                        <col style="width: 19%"> 
+                        <col style="width: 11%"> 
+                        <col style="width: 19%"> 
+                        <col style="width: 11%"> 
+                        <col style="width: 24%"> 
+                    </colgroup>
+                    <tr>
+                        <td class="bg-gray-field">班別</td>
+                        <td>${schoolInfo.className}</td>
+                        <td class="bg-gray-field">教學者</td>
+                        <td>${schoolInfo.teacher}</td>
+                        <td class="bg-gray-field">學生人數</td>
+                        <td>${students.length} 人</td>
+                    </tr>
+                    <tr>
+                        <td class="bg-gray-field">教授科目</td>
+                        <td>(${schoolInfo.grade}) 年級${format === 'chinese' ? '國語' : (format === 'english' ? '英語' : '數學')}</td>
+                        <td class="bg-gray-field">起訖日期</td>
+                        <td colspan="3">${schoolInfo.dateRange}</td>
+                    </tr>
+                    <tr>
+                        <td class="bg-gray-field">上課時間</td>
+                        <td colspan="3">${schoolInfo.classTime}</td>
+                        <td class="bg-gray-field">總節數</td>
+                        <td>${schoolInfo.totalSessions} 節</td>
+                    </tr>
+                    <tr>
+                        <td class="bg-gray-field">教學目標<br><span class="text-xs font-normal" style="white-space: nowrap;">(基本學習內容)</span></td>
+                        <td colspan="5" class="align-top p-2 text-left-align" style="white-space: pre-wrap; font-size: 13px; line-height: 1.5;">${objectives}</td>
+                    </tr>
+                </table>
+                <div style="margin-top: 8px;">${studentTablesHTML}</div>
+            `;
+
+            let logColGroupHTML = '';
+            let logHeaderHTML = '';
+
+            if (format === 'chinese') {
+                logColGroupHTML = `<colgroup><col style="width: 10%;"><col style="width: 10%;"><col style="width: 30%;"><col style="width: 18%;"><col style="width: 6%;"><col style="width: 6%;"><col style="width: 8%;"><col style="width: 12%;"></colgroup>`;
+                logHeaderHTML = `<thead><tr><td rowspan="2" class="bg-gray-field header-nowrap">目標代碼</td><td rowspan="2" class="bg-gray-field header-nowrap">上課日期</td><td rowspan="2" class="bg-gray-field">教學/學習策略</td><td rowspan="2" class="bg-gray-field">教材選用</td><td colspan="3" class="bg-gray-field header-nowrap">學生學習與評量</td><td rowspan="2" class="bg-gray-field">授課教師<br>簽名</td></tr><tr><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">良好</td><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">尚可</td><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">待改進</td></tr></thead>`;
+            } else if (format === 'english') {
+                logColGroupHTML = `<colgroup><col style="width: 10%;"><col style="width: 40%;"><col style="width: 18%;"><col style="width: 6%;"><col style="width: 6%;"><col style="width: 8%;"><col style="width: 12%;"></colgroup>`;
+                logHeaderHTML = `<thead><tr><td rowspan="2" class="bg-gray-field header-nowrap">上課日期</td><td rowspan="2" class="bg-gray-field">教學內容</td><td rowspan="2" class="bg-gray-field">教材選用</td><td colspan="3" class="bg-gray-field header-nowrap">學生學習與評量</td><td rowspan="2" class="bg-gray-field">授課教師<br>簽名</td></tr><tr><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">良好</td><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">尚可</td><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">待改進</td></tr></thead>`;
+            } else if (format === 'math_semester_original') {
+                logColGroupHTML = `<colgroup><col style="width: 24%;"><col style="width: 42%;"><col style="width: 6%;"><col style="width: 6%;"><col style="width: 8%;"><col style="width: 14%;"></colgroup>`;
+                logHeaderHTML = `<thead><tr><td rowspan="2" class="bg-gray-field header-nowrap">現階段數學單元</td><td rowspan="2" class="bg-gray-field">學習扶助教學內容</td><td colspan="3" class="bg-gray-field header-nowrap">學生學習與評量</td><td rowspan="2" class="bg-gray-field">備註</td></tr><tr><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">良好</td><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">尚可</td><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">待改進</td></tr></thead>`;
+            } else if (format === 'math_semester_remedial') {
+                logColGroupHTML = `<colgroup><col style="width: 10%;"><col style="width: 18%;"><col style="width: 36%;"><col style="width: 6%;"><col style="width: 6%;"><col style="width: 8%;"><col style="width: 16%;"></colgroup>`;
+                logHeaderHTML = `<thead><tr><td rowspan="2" class="bg-gray-field header-nowrap">上課日期</td><td rowspan="2" class="bg-gray-field">現階段數學單元</td><td rowspan="2" class="bg-gray-field">學習扶助教學內容</td><td colspan="3" class="bg-gray-field header-nowrap">學生學習與評量</td><td rowspan="2" class="bg-gray-field">授課教師<br>簽名</td></tr><tr><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">良好</td><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">尚可</td><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">待改進</td></tr></thead>`;
+            } else {
+                logColGroupHTML = `<colgroup><col style="width: 11%;"><col style="width: 54%;"><col style="width: 6%;"><col style="width: 6%;"><col style="width: 9%;"><col style="width: 14%;"></colgroup>`;
+                logHeaderHTML = `<thead><tr><td rowspan="2" class="bg-gray-field header-nowrap">上課日期</td><td rowspan="2" class="bg-gray-field">學習扶助教學內容</td><td colspan="3" class="bg-gray-field header-nowrap">學生學習與評量</td><td rowspan="2" class="bg-gray-field">授課教師<br>簽名</td></tr><tr><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">良好</td><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">尚可</td><td class="bg-gray-field header-nowrap" style="font-size: 0.9em;">待改進</td></tr></thead>`;
+            }
+
+            let { page, contentWrapper } = createNewPage();
+            container.appendChild(page);
+
+            const headerDiv = document.createElement('div');
+            headerDiv.innerHTML = headerHTML;
+            contentWrapper.appendChild(headerDiv);
+
+            let currentTable = document.createElement('table');
+            currentTable.className = "preview-table";
+            currentTable.innerHTML = logColGroupHTML;
+
+            const thead = document.createElement('thead');
+            thead.innerHTML = logHeaderHTML;
+            currentTable.appendChild(thead);
+
+            let tbody = document.createElement('tbody');
+            currentTable.appendChild(tbody);
+            contentWrapper.appendChild(currentTable);
+
+            logs.forEach(log => {
+                const tr = document.createElement('tr');
+                const checkGood = log.eval === '良好' ? '✓' : '';
+                const checkOk = log.eval === '尚可' ? '✓' : '';
+                const checkBad = log.eval === '待改進' ? '✓' : '';
+                const displayDate = formatDateForTable(log.date);
+
+                const formattedContent = formatTableCellText(log.content);
+                const formattedMaterial = formatTableCellText(log.material);
+                const formattedUnit = formatTableCellText(log.unit);
+
+                if (format === 'chinese') {
+                    tr.innerHTML = `<td class="text-center">${log.code || ''}</td><td class="text-center">${displayDate}</td><td class="text-left-align">${formattedContent}</td><td class="text-left-align">${formattedMaterial}</td><td class="text-center" style="font-size: 1.2em;">${checkGood}</td><td class="text-center" style="font-size: 1.2em;">${checkOk}</td><td class="text-center" style="font-size: 1.2em;">${checkBad}</td><td></td>`;
+                } else if (format === 'english') {
+                    tr.innerHTML = `<td class="text-center">${displayDate}</td><td class="text-left-align">${formattedContent}</td><td class="text-left-align">${formattedMaterial}</td><td class="text-center" style="font-size: 1.2em;">${checkGood}</td><td class="text-center" style="font-size: 1.2em;">${checkOk}</td><td class="text-center" style="font-size: 1.2em;">${checkBad}</td><td></td>`;
+                } else if (format === 'math_semester_original') {
+                    tr.innerHTML = `<td class="text-left-align">${formattedUnit}</td><td class="text-left-align">${formattedContent}</td><td class="text-center" style="font-size: 1.2em;">${checkGood}</td><td class="text-center" style="font-size: 1.2em;">${checkOk}</td><td class="text-center" style="font-size: 1.2em;">${checkBad}</td><td></td>`;
+                } else if (format === 'math_semester_remedial') {
+                    tr.innerHTML = `<td class="text-center">${displayDate}</td><td class="text-left-align">${formattedUnit}</td><td class="text-left-align">${formattedContent}</td><td class="text-center" style="font-size: 1.2em;">${checkGood}</td><td class="text-center" style="font-size: 1.2em;">${checkOk}</td><td class="text-center" style="font-size: 1.2em;">${checkBad}</td><td></td>`;
+                } else {
+                    tr.innerHTML = `<td class="text-center">${displayDate}</td><td class="text-left-align">${formattedContent}</td><td class="text-center" style="font-size: 1.2em;">${checkGood}</td><td class="text-center" style="font-size: 1.2em;">${checkOk}</td><td class="text-center" style="font-size: 1.2em;">${checkBad}</td><td></td>`;
+                }
+
+                tbody.appendChild(tr);
+
+                // 智慧分頁判定
+                if (hasOverflowed(contentWrapper, page)) {
+                    tbody.removeChild(tr);
+                    const newPageObj = createNewPage();
+                    page = newPageObj.page;
+                    contentWrapper = newPageObj.contentWrapper;
+                    container.appendChild(page);
+
+                    currentTable = document.createElement('table');
+                    currentTable.className = "preview-table";
+                    currentTable.innerHTML = logColGroupHTML;
+
+                    const nextThead = document.createElement('thead');
+                    nextThead.innerHTML = logHeaderHTML;
+                    currentTable.appendChild(nextThead);
+
+                    tbody = document.createElement('tbody');
+                    currentTable.appendChild(tbody);
+                    contentWrapper.appendChild(currentTable);
+
+                    tbody.appendChild(tr);
+                }
+            });
+        }
+
+        // ==========================================
+        // 高解析度多頁 PDF 下載
+        // ==========================================
+        async function downloadPDF() {
+            const loading = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+            const stagingArea = document.getElementById('pdf-staging-area');
+            const contentWrapper = document.getElementById('pdf-content-wrapper');
+            const originalContainer = document.getElementById('preview-container');
+
+            loading.style.display = 'flex';
+            loadingText.innerText = "正在準備頁面...";
+
+            stagingArea.style.display = 'flex';
+            contentWrapper.innerHTML = '';
+            const pages = originalContainer.querySelectorAll('.a4-paper');
+            const clonedPages = [];
+
+            pages.forEach(page => {
+                const clone = page.cloneNode(true);
+                clone.removeAttribute('id');
+                contentWrapper.appendChild(clone);
+                clonedPages.push(clone);
+            });
+
+            const dummy = document.createElement('div');
+            dummy.style.width = '1px'; dummy.style.height = '1px'; dummy.style.visibility = 'hidden';
+            contentWrapper.appendChild(dummy);
+
+            const opt = {
+                margin: 0,
+                filename: `${appState.schoolInfo.className || '課程規劃'}_學習扶助日誌.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, scrollY: 0, logging: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            try {
+                const worker = html2pdf().set(opt).from(dummy).toPdf();
+                const pdf = await worker.get('pdf');
+                contentWrapper.removeChild(dummy);
+
+                for (let i = 0; i < clonedPages.length; i++) {
+                    loadingText.innerText = `正在轉製第 ${i + 1} / ${clonedPages.length} 頁...`;
+                    const pageElement = clonedPages[i];
+                    const canvas = await html2pdf().set(opt).from(pageElement).toCanvas().get('canvas');
+                    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+
+                    if (i === 0) pdf.setPage(1);
+                    else pdf.addPage();
+
+                    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+                }
+
+                loadingText.innerText = "正在儲存 PDF 檔案...";
+                pdf.save(`${appState.schoolInfo.className || '課程規劃'}_學習扶助日誌.pdf`);
+
+                setTimeout(() => {
+                    stagingArea.style.display = 'none';
+                    contentWrapper.innerHTML = '';
+                    loading.style.display = 'none';
+                }, 1000);
+            } catch (err) {
+                console.error(err);
+                stagingArea.style.display = 'none';
+                contentWrapper.innerHTML = '';
+                loading.style.display = 'none';
+                showAlert("PDF 產生失敗，請稍後再試。");
+            }
+        }
+
+        // ==========================================
+        // 初始載入與初始化
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化主題
+            if (appState.theme === 'light') {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('theme-icon').className = 'fas fa-moon';
+            } else {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-icon').className = 'fas fa-sun text-yellow-400';
+            }
+
+            // 初始化介面字體大小 (預設中字體)
+            setFontSize(appState.fontSize || 'md');
+
+            // 初始化 UI
+            updateUIForSubject();
+            applyStateToUI();
+            renderStudentInputs();
+            renderLogInputs();
+            renderPreview();
+        });
+    </script>
+</body>
+</html>
