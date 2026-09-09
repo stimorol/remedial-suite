@@ -327,7 +327,12 @@
                             <i class="fas fa-users text-emerald-600 dark:text-emerald-400"></i>
                             <span>勾選入班學生名單（共 <span id="modal-csv-student-count">0</span> 位）：</span>
                         </label>
-                        <div class="flex items-center gap-1">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <label class="inline-flex items-center gap-1 cursor-pointer bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-2 py-0.5 rounded text-[11px] font-medium select-none hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition" title="預設開啟姓名去識別化保護個資，取消勾選即可檢視完整姓名">
+                                <input type="checkbox" id="modal-display-mask-toggle" checked onchange="toggleModalPickerDisplayMask(this.checked)" class="rounded text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer">
+                                <i class="fas fa-user-shield text-[10px]"></i>
+                                <span>去識別化</span>
+                            </label>
                             <button type="button" onclick="toggleAllModalPickerStudents(true)" class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium text-[11px] transition">全選</button>
                             <button type="button" onclick="toggleAllModalPickerStudents(false)" class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium text-[11px] transition">全不選</button>
                         </div>
@@ -558,7 +563,12 @@
                             </div>
                         </div>
                         <!-- 快速工具 -->
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-2.5 py-1 rounded-lg text-xs font-medium select-none hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition" title="預設開啟姓名去識別化保護學生個資，取消勾選即可檢視完整姓名">
+                                <input type="checkbox" id="csv-display-mask-toggle" checked onchange="toggleCsvStudentDisplayMask(this.checked)" class="rounded text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer">
+                                <i class="fas fa-user-shield text-[11px]"></i>
+                                <span>姓名去識別化顯示</span>
+                            </label>
                             <button type="button" onclick="toggleAllCsvStudents(true)" class="px-2.5 py-1 text-xs rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition font-medium">全選</button>
                             <button type="button" onclick="toggleAllCsvStudents(false)" class="px-2.5 py-1 text-xs rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition font-medium">全不選</button>
                         </div>
@@ -898,12 +908,15 @@
                             <div class="flex items-center gap-2">
                                 <i class="fas fa-user-shield text-amber-600 dark:text-amber-400 text-sm"></i>
                                 <div>
-                                    <div class="font-bold text-gray-800 dark:text-gray-200 text-xs">姓名去識別化遮罩</div>
+                                    <div class="font-bold text-gray-800 dark:text-gray-200 text-xs flex items-center gap-1.5">
+                                        <span>姓名去識別化遮罩</span>
+                                        <span id="anonBadge" class="text-[10px] px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-900 dark:bg-amber-900 dark:text-amber-200 font-semibold">已開啟</span>
+                                    </div>
                                     <div class="text-[10px] text-gray-500 dark:text-gray-400">A4 列印與預覽遮蔽保護 (如：李○華、王○)</div>
                                 </div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer select-none">
-                                <input type="checkbox" id="toggleAnonymize" onchange="toggleAnonymizeStudents(this.checked)" class="sr-only peer">
+                                <input type="checkbox" id="toggleAnonymize" checked onchange="toggleAnonymizeStudents(this.checked)" class="sr-only peer">
                                 <div class="w-8 h-4 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-gray-600 peer-checked:bg-amber-600"></div>
                             </label>
                         </div>
@@ -2039,6 +2052,19 @@
         // 步驟一 & 步驟二：受測學生名冊獨立管理與帶入模組
         // =========================================================================
 
+        let csvStudentsDisplayMask = true;
+        let modalPickerDisplayMask = true;
+
+        function toggleCsvStudentDisplayMask(checked) {
+            csvStudentsDisplayMask = !!checked;
+            renderCsvStudentsCard();
+        }
+
+        function toggleModalPickerDisplayMask(checked) {
+            modalPickerDisplayMask = !!checked;
+            renderModalPickerStudents();
+        }
+
         // 渲染步驟一獨立學生名冊卡片
         function renderCsvStudentsCard() {
             const card = document.getElementById('csvStudentsCard');
@@ -2057,12 +2083,19 @@
             detectedStudentsFromCSV.forEach((st, idx) => {
                 const label = document.createElement('label');
                 label.className = "flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600 cursor-pointer text-xs transition shadow-2xs select-none";
+                
+                const displayName = csvStudentsDisplayMask ? maskStudentName(st.name) : st.name;
+                const titleText = csvStudentsDisplayMask ? `已去識別化：${maskStudentName(st.name)} (取消上方開關可檢視全名)` : st.name;
+
                 label.innerHTML = `
                     <input type="checkbox" data-index="${idx}" ${st.checked ? 'checked' : ''} onchange="onCsvStudentCheckboxChange(${idx}, this.checked)" class="rounded text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer">
-                    <span class="font-bold text-gray-800 dark:text-gray-100 truncate" title="${st.name}">${st.name}</span>
+                    <span class="font-bold text-gray-800 dark:text-gray-100 truncate" title="${titleText}">${displayName}</span>
                 `;
                 grid.appendChild(label);
             });
+
+            const maskToggle = document.getElementById('csv-display-mask-toggle');
+            if (maskToggle) maskToggle.checked = csvStudentsDisplayMask;
 
             updateCsvSelectedCountBtn();
             card.classList.remove('hidden');
@@ -2097,10 +2130,15 @@
             
             appState.students = selected.map(st => ({ name: st.name, score1: "", score2: "" }));
 
-            if (enableMask) {
-                appState.maskStudents = true;
-                const toggle = document.getElementById('toggleAnonymize');
-                if (toggle) toggle.checked = true;
+            appState.anonymizeStudents = (enableMask !== false);
+            const toggle = document.getElementById('toggleAnonymize');
+            if (toggle) toggle.checked = appState.anonymizeStudents;
+            const badge = document.getElementById('anonBadge');
+            if (badge) {
+                badge.textContent = appState.anonymizeStudents ? '已開啟' : '已關閉';
+                badge.className = appState.anonymizeStudents
+                    ? "text-[10px] px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-900 dark:bg-amber-900 dark:text-amber-200 font-semibold"
+                    : "text-[10px] px-1.5 py-0.2 rounded bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400 font-semibold";
             }
 
             renderStudentInputs();
@@ -2108,7 +2146,7 @@
             updateDemoBannerUI();
             switchMainTab('planner');
 
-            showAlert(`已成功將 ${selected.length} 位受測學生帶入步驟 2 學生名單！\n\n已自動切換至步驟 2 課程規劃表，您可以直接微調名冊或輸入成績。`);
+            showAlert(`已成功將 ${selected.length} 位受測學生帶入步驟 2 學生名單！\n\n已自動切換至步驟 2 課程規劃表，且姓名去識別化遮罩已預設啟用保護個資。`);
         }
 
         function updateStep2ImportBtnVisibility() {
@@ -2157,15 +2195,21 @@
                     ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300 font-normal shrink-0">已在名單</span>` 
                     : '';
 
+                const displayName = modalPickerDisplayMask ? maskStudentName(st.name) : st.name;
+                const titleText = modalPickerDisplayMask ? `已去識別化：${maskStudentName(st.name)} (取消右上開關可檢視全名)` : st.name;
+
                 label.innerHTML = `
                     <div class="flex items-center gap-2 min-w-0 pr-1">
                         <input type="checkbox" data-index="${idx}" ${st.checked ? 'checked' : ''} onchange="onModalPickerCheckboxChange(${idx}, this.checked)" class="rounded text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer">
-                        <span class="font-bold text-gray-800 dark:text-gray-100 truncate" title="${st.name}">${st.name}</span>
+                        <span class="font-bold text-gray-800 dark:text-gray-100 truncate" title="${titleText}">${displayName}</span>
                     </div>
                     ${badge}
                 `;
                 container.appendChild(label);
             });
+
+            const maskToggle = document.getElementById('modal-display-mask-toggle');
+            if (maskToggle) maskToggle.checked = modalPickerDisplayMask;
         }
 
         function onModalPickerCheckboxChange(idx, checked) {
@@ -2215,10 +2259,15 @@
                 });
             }
 
-            if (enableMask) {
-                appState.maskStudents = true;
-                const toggle = document.getElementById('toggleAnonymize');
-                if (toggle) toggle.checked = true;
+            appState.anonymizeStudents = (enableMask !== false);
+            const toggle = document.getElementById('toggleAnonymize');
+            if (toggle) toggle.checked = appState.anonymizeStudents;
+            const badge = document.getElementById('anonBadge');
+            if (badge) {
+                badge.textContent = appState.anonymizeStudents ? '已開啟' : '已關閉';
+                badge.className = appState.anonymizeStudents
+                    ? "text-[10px] px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-900 dark:bg-amber-900 dark:text-amber-200 font-semibold"
+                    : "text-[10px] px-1.5 py-0.2 rounded bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400 font-semibold";
             }
 
             renderStudentInputs();
@@ -2600,7 +2649,7 @@
             theme: 'dark',
             fontSize: 'md',
             format: 'math_vacation',
-            anonymizeStudents: false,
+            anonymizeStudents: true,
             schoolInfo: getDefaultSchoolInfo(),
             objectives: templates.math.objectives,
             students: [
@@ -2624,7 +2673,7 @@
         }
         if (!appState.schoolInfo.textbookPublisher) appState.schoolInfo.textbookPublisher = 'knsh';
         if (!appState.schoolInfo.customUnits) appState.schoolInfo.customUnits = [];
-        if (typeof appState.anonymizeStudents === 'undefined') appState.anonymizeStudents = false;
+        if (typeof appState.anonymizeStudents === 'undefined') appState.anonymizeStudents = true;
         if (typeof appState.demoDismissed === 'undefined') appState.demoDismissed = false;
 
         // ==========================================
@@ -3012,6 +3061,14 @@
 
         function toggleAnonymizeStudents(checked) {
             appState.anonymizeStudents = !!checked;
+            const badge = document.getElementById('anonBadge');
+            if (badge) {
+                badge.textContent = appState.anonymizeStudents ? '已開啟' : '已關閉';
+                badge.className = appState.anonymizeStudents
+                    ? "text-[10px] px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-900 dark:bg-amber-900 dark:text-amber-200 font-semibold"
+                    : "text-[10px] px-1.5 py-0.2 rounded bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400 font-semibold";
+            }
+            renderStudentInputs();
             saveAndRender();
         }
 
@@ -3734,19 +3791,26 @@
             appState.schoolInfo = getDefaultSchoolInfo();
             appState.theme = currentTheme;
             appState.fontSize = currentFontSize;
-            appState.anonymizeStudents = false;
+            appState.anonymizeStudents = true;
 
             // 清空步驟 1 暫存狀態與 UI
             rawRows = [];
             headers = [];
             parsedData = [];
             headerRowIndex = 0;
+            detectedStudentsFromCSV = [];
+            csvStudentsDisplayMask = true;
+            modalPickerDisplayMask = true;
             const csvInput = document.getElementById('csvFileInput');
             if (csvInput) csvInput.value = '';
             const fileNameDisplay = document.getElementById('fileNameDisplay');
             if (fileNameDisplay) fileNameDisplay.innerText = '尚未選擇檔案';
             const mappingSection = document.getElementById('mappingSection');
             if (mappingSection) mappingSection.classList.add('hidden');
+            const csvStudentsCard = document.getElementById('csvStudentsCard');
+            if (csvStudentsCard) csvStudentsCard.classList.add('hidden');
+            const step2ImportBtn = document.getElementById('importStudentsFromStep1Btn');
+            if (step2ImportBtn) step2ImportBtn.classList.add('hidden');
             const step2Section = document.getElementById('step2Section');
             if (step2Section) step2Section.classList.add('hidden');
             const step3Section = document.getElementById('step3Section');
@@ -3802,6 +3866,13 @@
             // 更新姓名去識別化遮罩開關
             const anonToggle = document.getElementById('toggleAnonymize');
             if (anonToggle) anonToggle.checked = !!appState.anonymizeStudents;
+            const badge = document.getElementById('anonBadge');
+            if (badge) {
+                badge.textContent = appState.anonymizeStudents ? '已開啟' : '已關閉';
+                badge.className = appState.anonymizeStudents
+                    ? "text-[10px] px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-900 dark:bg-amber-900 dark:text-amber-200 font-semibold"
+                    : "text-[10px] px-1.5 py-0.2 rounded bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400 font-semibold";
+            }
 
             // 更新總節數推算狀態提示
             updateTotalSessionsUI();
@@ -3813,9 +3884,15 @@
             appState.students.forEach((student, index) => {
                 const div = document.createElement('div');
                 div.className = "flex gap-2 items-center bg-gray-50/80 dark:bg-gray-900/80 p-2 rounded-lg border border-gray-200 dark:border-gray-700/80 shadow-2xs";
+                
+                const maskedPreview = (student.name && appState.anonymizeStudents) ? maskStudentName(student.name) : student.name;
+                const titleHint = appState.anonymizeStudents 
+                    ? `真實姓名：${student.name || '空白'}（A4 報表將遮罩為：${maskedPreview}，開關位於上方）` 
+                    : `學生姓名：${student.name || '空白'}`;
+
                 div.innerHTML = `
                     <span class="text-xs font-bold text-gray-400 dark:text-gray-500 w-5 text-center">${index + 1}</span>
-                    <input type="text" value="${student.name}" oninput="updateStudent(${index}, 'name', this.value)" class="flex-1 min-w-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" placeholder="姓名">
+                    <input type="text" value="${student.name}" oninput="updateStudent(${index}, 'name', this.value)" class="flex-1 min-w-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" placeholder="姓名" title="${titleHint}">
                     <input type="text" value="${student.score1}" oninput="updateStudent(${index}, 'score1', this.value)" class="w-14 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded text-center focus:ring-1 focus:ring-blue-500 outline-none" placeholder="前測">
                     <input type="text" value="${student.score2}" oninput="updateStudent(${index}, 'score2', this.value)" class="w-14 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded text-center focus:ring-1 focus:ring-blue-500 outline-none" placeholder="後測">
                     <button onclick="confirmRemoveStudent(${index})" class="text-gray-400 hover:text-red-500 dark:hover:text-red-400 px-1.5 transition" title="刪除學生"><i class="fas fa-times"></i></button>
