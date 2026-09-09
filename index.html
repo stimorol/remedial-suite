@@ -245,6 +245,48 @@
         </div>
     </div>
 
+    <!-- ======================= 課本單元檢視與自訂 Modal ======================= -->
+    <div id="custom-units-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50 transition-opacity">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 max-w-lg w-full shadow-2xl transition-all max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-3 mb-4">
+                <h3 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <i class="fas fa-book-bookmark text-indigo-500"></i>
+                    <span>課本單元清單檢視與自訂</span>
+                </h3>
+                <button type="button" onclick="toggleCustomUnitsModal(false)" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs custom-scrollbar">
+                <!-- 目前設定摘要 -->
+                <div class="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-lg border border-indigo-100 dark:border-indigo-900/60 text-indigo-900 dark:text-indigo-200">
+                    <div class="font-semibold mb-1 flex items-center justify-between">
+                        <span id="modalConfigSummary">目前版本與年級單元</span>
+                        <span id="modalUnitsCountBadge" class="text-[11px] bg-indigo-200/80 dark:bg-indigo-800/80 px-2 py-0.5 rounded-full font-bold"></span>
+                    </div>
+                    <div id="modalUnitsList" class="space-y-1 mt-2 max-h-40 overflow-y-auto pr-1"></div>
+                </div>
+
+                <!-- 自訂單元輸入區 -->
+                <div>
+                    <label class="block font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                        自訂/校本教材單元 (每行輸入一個單元名稱，將自動列入快速點選清單)
+                    </label>
+                    <textarea id="customUnitsTextarea" rows="4" class="w-full p-2.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none resize-y leading-relaxed font-mono" placeholder="例：&#10;校本單元一 生活中的幾何大師&#10;校本單元二 跨領域因倍數實踐"></textarea>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                        輸入後點擊下方「儲存並套用」，所有課堂日誌即可直接下拉選取您自編的單元。
+                    </p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2.5 pt-4 border-t border-gray-100 dark:border-gray-700 mt-4">
+                <button type="button" onclick="toggleCustomUnitsModal(false)" class="px-4 py-2 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition">取消</button>
+                <button type="button" onclick="saveCustomUnits()" class="px-4 py-2 text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition shadow-md flex items-center gap-1.5">
+                    <i class="fas fa-check"></i> 儲存並套用
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ======================= 載入中遮罩 ======================= -->
     <div id="loading-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center text-white">
         <div class="animate-spin rounded-full h-14 w-14 border-4 border-white/20 border-t-blue-500 mb-4"></div>
@@ -517,6 +559,27 @@
                                     <span id="gradeSummary" class="text-xs font-semibold text-blue-600 dark:text-blue-400"></span>
                                 </div>
                                 <div id="gradeChipsContainer" class="flex flex-wrap gap-1.5"></div>
+                            </div>
+                            <!-- 數學教材版本 (課本單元來源) -->
+                            <div id="textbookPublisherSection" class="col-span-2 p-2.5 rounded-lg bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 space-y-1.5">
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-indigo-900 dark:text-indigo-200 font-semibold flex items-center gap-1.5">
+                                        <i class="fas fa-book text-indigo-600 dark:text-indigo-400"></i>
+                                        <span>數學教材版本 (課本單元來源)</span>
+                                    </label>
+                                    <span id="textbookLoadedCount" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-300"></span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <select id="textbookPublisher" onchange="onTextbookPublisherChange(this.value)" class="flex-1 p-1.5 rounded-lg bg-white dark:bg-gray-900 border border-indigo-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs focus:ring-2 focus:ring-indigo-500/50 outline-none cursor-pointer">
+                                        <option value="knsh">康軒版 (國小1~6年級 / 國中7~9年級)</option>
+                                        <option value="nani">南一版 (國小1~6年級 / 國中7~9年級)</option>
+                                        <option value="hanlin">翰林版 (國小1~6年級 / 國中7~9年級)</option>
+                                        <option value="custom">自訂單元 / 校本教材清單</option>
+                                    </select>
+                                    <button type="button" onclick="toggleCustomUnitsModal(true)" class="px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-indigo-200 dark:border-gray-600 text-indigo-700 dark:text-indigo-300 text-xs shrink-0 transition flex items-center gap-1" title="檢視或自訂課本單元清單">
+                                        <i class="fas fa-list-check"></i> 檢視/自訂
+                                    </button>
+                                </div>
                             </div>
                             <div class="col-span-2">
                                 <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">班別</label>
@@ -1448,6 +1511,7 @@
             }
             document.getElementById('formatSelect').value = appState.format;
             updateSemesterOptions();
+            updateTextbookPublisherUI();
 
             // 儲存並渲染
             saveAndRender();
@@ -1485,6 +1549,282 @@
                 ]
             }
         };
+
+        // =========================================================================
+        // 台灣 108 課綱國中小數學教材完整資料庫 (涵蓋 1~9 年級上、下學期康軒/南一/翰林)
+        // =========================================================================
+        const MATH_TEXTBOOK_DATABASE = {
+            knsh: {
+                name: '康軒版',
+                grades: {
+                    1: {
+                        1: ['單元1 10以內的數', '單元2 比長短', '單元3 排順序、比多少', '單元4 分與合', '單元5 10以內的加法', '單元6 認識形狀', '單元7 10以內的減法', '單元8 30以內的數'],
+                        2: ['單元1 50以內的數', '單元2 18以內的加法', '單元3 圖形與分類', '單元4 18以內的減法', '單元5 長度', '單元6 100以內的數', '單元7 認識錢幣', '單元8 兩步驟加減', '單元9 做紀錄']
+                    },
+                    2: {
+                        1: ['單元1 200以內的數', '單元2 二位數加減', '單元3 量長度', '單元4 加減關係與應用', '單元5 面積', '單元6 兩步驟加減', '單元7 乘法(一)', '單元8 幾時幾分', '單元9 容量與重量'],
+                        2: ['單元1 1000以內的數', '單元2 三位數加減', '單元3 平面圖形', '單元4 年月日', '單元5 乘法', '單元6 兩步驟應用問題', '單元7 公尺和公分', '單元8 分類與立體圖形', '單元9 分分看', '單元10 分數']
+                    },
+                    3: {
+                        1: ['單元1 10000以內的數', '單元2 四位數的加減', '單元3 毫米', '單元4 乘法', '單元5 角', '單元6 面積', '單元7 除法', '單元8 公升和毫升', '單元9 分數'],
+                        2: ['單元1 分數的加減', '單元2 除法', '單元3 尋找規律', '單元4 公斤和公克', '單元5 小數', '單元6 圓', '單元7 乘法與除法', '單元8 時間', '單元9 統計表']
+                    },
+                    4: {
+                        1: ['單元1 一億以內的數', '單元2 乘法', '單元3 角度', '單元4 除法', '單元5 公里', '單元6 三角形', '單元7 小數', '單元8 整數四則', '單元9 分數', '單元10 長條圖與折線圖'],
+                        2: ['單元1 億以上的數', '單元2 概數', '單元3 乘法與除法', '單元4 四邊形', '單元5 分數', '單元6 小數', '單元7 周長與面積', '單元8 時間的計算', '單元9 體積', '單元10 數量規律']
+                    },
+                    5: {
+                        1: ['單元1 多位小數', '單元2 因數與倍數', '單元3 擴分、約分和通分', '單元4 多邊形', '單元5 扇形', '單元6 異分母分數加減', '單元7 整數四則', '單元8 面積', '單元9 柱體與錐體'],
+                        2: ['單元1 小數乘法', '單元2 分數乘法', '單元3 容積與容量', '單元4 線對稱圖形', '單元5 整數與小數除以整數', '單元6 面與面的垂直與平行', '單元7 體積', '單元8 比率與百分率', '單元9 時間的計算', '單元10 規律問題']
+                    },
+                    6: {
+                        1: ['單元1 質因數分解與最大公因數', '單元2 分數的除法', '單元3 數量關係', '單元4 小數的除法', '單元5 圓周長與圓面積', '單元6 比與比值', '單元7 扇形的弧長與面積', '單元8 等量公理'],
+                        2: ['單元1 速率', '單元2 基準量與比較量', '單元3 柱體的體積與表面積', '單元4 縮圖、放大圖與比例尺', '單元5 怎樣解題', '單元6 統計圖表']
+                    },
+                    7: {
+                        1: ['單元1 數與數線', '單元2 整數的運算', '單元3 指數律與科學記號', '單元4 因數與倍數', '單元5 分數的運算', '單元6 一元一次方程式'],
+                        2: ['單元1 二元一次聯立方程式', '單元2 直角坐標與二元一次方程式圖形', '單元3 比例與連比', '單元4 一元一次不等式', '單元5 統計圖表與資料分析', '單元6 生活中的幾何與立體圖形']
+                    },
+                    8: {
+                        1: ['單元1 乘法公式與多項式', '單元2 二次方根與畢氏定理', '單元3 因式分解', '單元4 一元二次方程式'],
+                        2: ['單元1 等差數列與等差級數', '單元2 幾何圖形與尺規作圖', '單元3 三角形的內角與外角', '單元4 平行與四邊形']
+                    },
+                    9: {
+                        1: ['單元1 相似形與連比', '單元2 圓形性質', '單元3 幾何證明與三角形三心'],
+                        2: ['單元1 二次函數與最大最小值', '單元2 統計與機率', '單元3 空間立體圖形與三視圖']
+                    }
+                }
+            },
+            nani: {
+                name: '南一版',
+                grades: {
+                    1: {
+                        1: ['單元1 數到10', '單元2 比長短', '單元3 分與合', '單元4 順序與多少', '單元5 數到30', '單元6 認識形狀', '單元7 加一加', '單元8 減一減與應用', '單元9 讀鐘錶'],
+                        2: ['單元1 50以內的數', '單元2 18以內的加法', '單元3 長度比較', '單元4 18以內的減法', '單元5 圖形與形狀', '單元6 100以內的數', '單元7 認識錢幣', '單元8 加減應用', '單元9 分類整理']
+                    },
+                    2: {
+                        1: ['單元1 數到300', '單元2 二位數的加減', '單元3 幾公分', '單元4 加減的關係與應用', '單元5 容量', '單元6 兩步驟的加減', '單元7 2、5、4、8的乘法', '單元8 幾時幾分', '單元9 3、6、7、9的乘法', '單元10 平面圖形'],
+                        2: ['單元1 數到1000', '單元2 三位數的加減', '單元3 平面與立體圖形', '單元4 年月日', '單元5 乘法', '單元6 兩步驟問題', '單元7 公尺與公分', '單元8 分裝與平分', '單元9 分數']
+                    },
+                    3: {
+                        1: ['單元1 數到10000', '單元2 四位數加減', '單元3 乘法', '單元4 幾毫米', '單元5 角與多邊形', '單元6 除法', '單元7 公升與毫升', '單元8 分數', '單元9 圓'],
+                        2: ['單元1 分數', '單元2 乘法與除法', '單元3 長度與重量', '單元4 一位小數', '單元5 平面圖形', '單元6 面積', '單元7 時間', '單元8 統計表與規律']
+                    },
+                    4: {
+                        1: ['單元1 一億以內的數', '單元2 乘法', '單元3 角度', '單元4 除法', '單元5 三角形', '單元6 分數', '單元7 數量關係', '單元8 整數四則', '單元9 小數', '單元10 公里'],
+                        2: ['單元1 億以上的數', '單元2 乘除應用', '單元3 四邊形', '單元4 概數', '單元5 分數', '單元6 小數', '單元7 周長與面積', '單元8 時間', '單元9 立方公分', '單元10 規律']
+                    },
+                    5: {
+                        1: ['單元1 長條圖與折線圖', '單元2 因數與倍數', '單元3 多邊形', '單元4 擴分、約分與通分', '單元5 線對稱圖形', '單元6 異分母分數加減', '單元7 整數四則計算', '單元8 平行四邊形、三角形與梯形面積', '單元9 時間的乘除', '單元10 正方體與長方體'],
+                        2: ['單元1 小數乘法', '單元2 分數乘法', '單元3 容積與容量', '單元4 整數、小數除以整數', '單元5 柱體與錐體', '單元6 體積與表面積', '單元7 比率與百分率', '單元8 時間', '單元9 生活中的數量關係']
+                    },
+                    6: {
+                        1: ['單元1 質因數分解與短除法', '單元2 分數除法', '單元3 小數除法', '單元4 圓周長與圓面積', '單元5 比與比值', '單元6 扇形面積', '單元7 速率', '單元8 數量關係與等量公理'],
+                        2: ['單元1 柱體的體積與表面積', '單元2 放大圖與比例尺', '單元3 基準量與比較量', '單元4 統計圖表', '單元5 怎樣解題']
+                    },
+                    7: {
+                        1: ['單元1 數與整數的加減', '單元2 整數的乘除與指數律', '單元3 科學記號', '單元4 因數與倍數', '單元5 分數的運算', '單元6 一元一次方程式'],
+                        2: ['單元1 二元一次聯立方程式', '單元2 直角坐標平面', '單元3 比與比例式', '單元4 一元一次不等式', '單元5 統計圖表', '單元6 平面與立體幾何']
+                    },
+                    8: {
+                        1: ['單元1 乘法公式與多項式', '單元2 平方根與勾股定理', '單元3 因式分解', '單元4 一元二次方程式'],
+                        2: ['單元1 等差數列與級數', '單元2 尺規作圖與生活幾何', '單元3 三角形性質', '單元4 平行線與四邊形']
+                    },
+                    9: {
+                        1: ['單元1 連比與相似形', '單元2 圓的幾何性質', '單元3 推理證明與三心'],
+                        2: ['單元1 二次函數及其圖形', '單元2 統計與抽樣', '單元3 機率', '單元4 立體幾何']
+                    }
+                }
+            },
+            hanlin: {
+                name: '翰林版',
+                grades: {
+                    1: {
+                        1: ['單元1 10以內的數', '單元2 比長短', '單元3 順序與位置', '單元4 分與合', '單元5 10以內的加法', '單元6 認識圖形', '單元7 10以內的減法', '單元8 30以內的數'],
+                        2: ['單元1 50以內的數', '單元2 18以內的加法', '單元3 圖形拼貼', '單元4 18以內的減法', '單元5 量長度', '單元6 100以內的數', '單元7 數錢幣', '單元8 兩步驟問題', '單元9 統計與生活']
+                    },
+                    2: {
+                        1: ['單元1 200以內的數', '單元2 二位數的加減', '單元3 公分與長度', '單元4 加減的應用', '單元5 容量與容器', '單元6 兩步驟加減', '單元7 乘法(一)', '單元8 幾點幾分', '單元9 乘法(二)', '單元10 平面圖形'],
+                        2: ['單元1 1000以內的數', '單元2 三位數加減', '單元3 形狀與邊角', '單元4 年月日', '單元5 乘法運算', '單元6 兩步驟應用題', '單元7 公尺與公分', '單元8 平分與分裝', '單元9 認識分數']
+                    },
+                    3: {
+                        1: ['單元1 10000以內的數', '單元2 四位數加法與減法', '單元3 毫米與測量', '單元4 乘法', '單元5 角的大小', '單元6 除法', '單元7 容量公升與毫升', '單元8 分數', '單元9 圓的認識'],
+                        2: ['單元1 分數加減', '單元2 二位數除法', '單元3 重量公斤與公克', '單元4 小數', '單元5 乘除互逆', '單元6 圓與角', '單元7 面積計算', '單元8 時間與時刻', '單元9 資料整理']
+                    },
+                    4: {
+                        1: ['單元1 一億以內的數', '單元2 乘法', '單元3 角度', '單元4 除法', '單元5 三角形', '單元6 分數', '單元7 整數四則計算', '單元8 小數', '單元9 長度公里', '單元10 折線圖'],
+                        2: ['單元1 億以上的數', '單元2 多位數乘除', '單元3 概數與估算', '單元4 四邊形', '單元5 等值分數', '單元6 二位小數', '單元7 面積與周長', '單元8 時間計算', '單元9 立方公分與體積', '單元10 規律與模式']
+                    },
+                    5: {
+                        1: ['單元1 小數乘法', '單元2 因數與倍數', '單元3 擴分、約分與通分', '單元4 三角形與多邊形', '單元5 扇形', '單元6 異分母分數加減', '單元7 整數四則', '單元8 平面圖形面積', '單元9 柱體與錐體'],
+                        2: ['單元1 分數乘法', '單元2 小數乘法', '單元3 容積與容量', '單元4 線對稱圖形', '單元5 表面積', '單元6 小數與分數除法', '單元7 體積計算', '單元8 比率與百分率', '單元9 生活中的規律']
+                    },
+                    6: {
+                        1: ['單元1 最大公因數與最小公倍數', '單元2 分數除法', '單元3 小數除法', '單元4 圓周長與面積', '單元5 比、比值與比例式', '單元6 扇形弧長與面積', '單元7 等量公理', '單元8 速率'],
+                        2: ['單元1 速率與生活應用', '單元2 基準量與比較量', '單元3 柱體體積與表面積', '單元4 放大圖、縮圖與比例尺', '單元5 統計與機率', '單元6 數學探索與解題']
+                    },
+                    7: {
+                        1: ['單元1 數與數線', '單元2 整數的四則運算', '單元3 指數律與科學記號', '單元4 因數與倍數', '單元5 分數運算', '單元6 一元一次方程式的解法與應用'],
+                        2: ['單元1 二元一次聯立方程式', '單元2 直角坐標系與二元一次圖形', '單元3 比與比例式', '單元4 一元一次不等式', '單元5 統計與生活', '單元6 垂直、平分與三視圖']
+                    },
+                    8: {
+                        1: ['單元1 乘法公式與多項式運算', '單元2 平方根與畢氏定理', '單元3 因式分解', '單元4 一元二次方程式'],
+                        2: ['單元1 等差數列與級數', '單元2 幾何圖形與尺規作圖', '單元3 三角形的基本性質', '單元4 平行與特殊四邊形']
+                    },
+                    9: {
+                        1: ['單元1 比例線段與相似形', '單元2 圓形與角', '單元3 幾何推理與三角形的三心'],
+                        2: ['單元1 二次函數與極值', '單元2 統計資料分析', '單元3 機率與抽樣', '單元4 空間中的立體圖形']
+                    }
+                }
+            }
+        };
+
+        const CHINESE_NUMS = {'一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9};
+
+        function getUnitsForConfig(publisher, gradeStr, semesterStr) {
+            const pubKey = (publisher && MATH_TEXTBOOK_DATABASE[publisher]) ? publisher : 'knsh';
+            const pubData = MATH_TEXTBOOK_DATABASE[pubKey];
+            
+            // 解析學期 (若選寒假或暑假，預設帶出第一學期或雙學期)
+            const sem = (semesterStr && semesterStr.includes('二')) ? 2 : 1;
+            const semText = sem === 1 ? '上' : '下';
+
+            // 解析年級 (支援混齡複選)
+            const grades = [];
+            for (const [ch, num] of Object.entries(CHINESE_NUMS)) {
+                if ((gradeStr || '').includes(ch)) {
+                    grades.push(num);
+                }
+            }
+            if (grades.length === 0) grades.push(6); // 預設 6 年級
+
+            const result = [];
+            grades.forEach(g => {
+                const gradeUnits = pubData.grades[g]?.[sem] || [];
+                const chGrade = Object.keys(CHINESE_NUMS).find(k => CHINESE_NUMS[k] === g) || g;
+                gradeUnits.forEach(u => {
+                    result.push({
+                        grade: g,
+                        gradeText: chGrade,
+                        semText: semText,
+                        badge: `【${chGrade}${semText} ${pubData.name.slice(0, 2)}】`,
+                        name: u
+                    });
+                });
+            });
+            return result;
+        }
+
+        function getUnitsForCurrentConfig() {
+            const pub = appState.schoolInfo?.textbookPublisher || 'knsh';
+            const gradeStr = appState.schoolInfo?.grade || '';
+            const semesterStr = appState.schoolInfo?.semester || '';
+            const customList = appState.schoolInfo?.customUnits || [];
+
+            const units = [];
+            if (pub !== 'custom') {
+                units.push(...getUnitsForConfig(pub, gradeStr, semesterStr));
+            }
+            if (Array.isArray(customList) && customList.length > 0) {
+                customList.forEach(cu => {
+                    const clean = (cu || '').trim();
+                    if (clean) {
+                        units.push({
+                            gradeText: '校本',
+                            semText: '',
+                            badge: '【自訂】',
+                            name: clean
+                        });
+                    }
+                });
+            }
+            return units;
+        }
+
+        function onTextbookPublisherChange(pub) {
+            if (!appState.schoolInfo) appState.schoolInfo = {};
+            appState.schoolInfo.textbookPublisher = pub;
+            updateTextbookPublisherUI();
+            renderLogInputs();
+            saveAndRender();
+        }
+
+        function updateTextbookPublisherUI() {
+            const isSemesterMath = appState.format === 'math_semester_remedial' || appState.format === 'math_semester_original';
+            const tbSec = document.getElementById('textbookPublisherSection');
+            if (tbSec) {
+                tbSec.style.display = isSemesterMath ? 'block' : 'none';
+            }
+            const pubSelect = document.getElementById('textbookPublisher');
+            if (pubSelect && appState.schoolInfo?.textbookPublisher) {
+                pubSelect.value = appState.schoolInfo.textbookPublisher;
+            }
+            const countBadge = document.getElementById('textbookLoadedCount');
+            if (countBadge) {
+                const units = getUnitsForCurrentConfig();
+                countBadge.textContent = `已載入 ${units.length} 個單元`;
+            }
+        }
+
+        function toggleCustomUnitsModal(show) {
+            const modal = document.getElementById('custom-units-modal');
+            if (!modal) return;
+            if (show) {
+                const pubKey = appState.schoolInfo?.textbookPublisher || 'knsh';
+                const pubName = (MATH_TEXTBOOK_DATABASE[pubKey] ? MATH_TEXTBOOK_DATABASE[pubKey].name : '自訂版本');
+                const gradeStr = appState.schoolInfo?.grade || '六';
+                const semStr = appState.schoolInfo?.semester || '第一學期';
+                const units = getUnitsForCurrentConfig();
+
+                const sumEl = document.getElementById('modalConfigSummary');
+                if (sumEl) sumEl.textContent = `【${pubName}】${gradeStr}年級 ${semStr}`;
+                const cntEl = document.getElementById('modalUnitsCountBadge');
+                if (cntEl) cntEl.textContent = `共 ${units.length} 個單元`;
+
+                const listEl = document.getElementById('modalUnitsList');
+                if (listEl) {
+                    listEl.innerHTML = units.map(u => `
+                        <div class="py-1 px-2 rounded bg-white/70 dark:bg-gray-900/60 border border-indigo-100 dark:border-indigo-900/40 text-[11px] flex items-center justify-between">
+                            <span class="font-medium text-indigo-800 dark:text-indigo-300">${u.badge} ${u.name}</span>
+                        </div>
+                    `).join('');
+                }
+
+                const ta = document.getElementById('customUnitsTextarea');
+                if (ta) {
+                    const list = appState.schoolInfo?.customUnits || [];
+                    ta.value = list.join('\n');
+                }
+
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function saveCustomUnits() {
+            const raw = document.getElementById('customUnitsTextarea')?.value || '';
+            const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+            if (!appState.schoolInfo) appState.schoolInfo = {};
+            appState.schoolInfo.customUnits = lines;
+            saveAndRender();
+            updateTextbookPublisherUI();
+            renderLogInputs();
+            toggleCustomUnitsModal(false);
+            showAlert(`已成功儲存 ${lines.length} 個自訂教材單元！所有課堂日誌已即時連動。`);
+        }
+
+        function updateLogUnitSelect(index, unitName) {
+            if (!unitName) return;
+            appState.logs[index].unit = unitName;
+            const input = document.getElementById(`log-unit-input-${index}`);
+            if (input) input.value = unitName;
+            const status = document.getElementById(`log-unit-status-${index}`);
+            if (status) {
+                status.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 已選定單元</span>';
+            }
+            saveAndRender();
+        }
 
         // ==========================================
         // 日期與學期週數自動計算邏輯
@@ -1536,7 +1876,9 @@
                 weekdays: [2, 4],
                 startTime: "16:00",
                 endTime: "17:20",
-                totalSessions: "40"
+                totalSessions: "40",
+                textbookPublisher: "knsh",
+                customUnits: []
             };
         }
 
@@ -1565,6 +1907,8 @@
             appState.schoolInfo.schoolYear = sy.toString();
             appState.schoolInfo.dateRange = `${formatDateToROC(appState.schoolInfo.startDate)}至${formatDateToROC(appState.schoolInfo.endDate)}`;
         }
+        if (!appState.schoolInfo.textbookPublisher) appState.schoolInfo.textbookPublisher = 'knsh';
+        if (!appState.schoolInfo.customUnits) appState.schoolInfo.customUnits = [];
 
         function formatDateToROC(dateStr) {
             if (!dateStr) return '';
@@ -1630,6 +1974,8 @@
                 if (endInput) endInput.value = calculatedEnd;
                 updateDateRange();
             }
+            updateTextbookPublisherUI();
+            renderLogInputs();
         }
 
         function updateDateRange() {
@@ -1674,6 +2020,7 @@
                 document.getElementById('objectives').value = appState.objectives;
             }
             updateSemesterOptions();
+            updateTextbookPublisherUI();
             renderLogInputs();
             saveAndRender();
         }
@@ -1757,6 +2104,26 @@
                 saveAndRender();
                 if (key === 'content') {
                     updateLogGoalSelect(index);
+                } else if (key === 'unit') {
+                    const sel = document.getElementById(`log-unit-select-${index}`);
+                    if (sel) {
+                        const trimmedVal = (value || '').trim();
+                        let found = false;
+                        for (let i = 0; i < sel.options.length; i++) {
+                            if (sel.options[i].value && sel.options[i].value.trim() === trimmedVal) {
+                                sel.selectedIndex = i;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) sel.value = '';
+                    }
+                    const status = document.getElementById(`log-unit-status-${index}`);
+                    if (status) {
+                        status.innerHTML = value && value.trim() 
+                            ? '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 已設定單元</span>' 
+                            : '點選下拉快速帶入';
+                    }
                 }
             }
         }
@@ -1813,6 +2180,8 @@
             }
             appState.schoolInfo.grade = current.join('、');
             renderGradeChips();
+            updateTextbookPublisherUI();
+            renderLogInputs();
             saveAndRender();
         }
 
@@ -2213,6 +2582,10 @@
             // 更新上課星期標籤與時段
             initClassTimeFromState();
             renderWeekdayChips();
+
+            // 更新教材版本選單與單元狀態
+            if (getElem('textbookPublisher')) getElem('textbookPublisher').value = appState.schoolInfo.textbookPublisher || 'knsh';
+            updateTextbookPublisherUI();
         }
 
         function renderStudentInputs() {
@@ -2338,15 +2711,43 @@
                         <textarea oninput="updateLog(${index}, 'content', this.value)" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="教學內容">${log.content}</textarea>
                     `;
                 } else {
-                    let dateStyle = isOriginalClass ? 'display: none;' : '';
-                    let dateClass = isOriginalClass ? '' : 'col-span-2';
-                    let unitClass = isOriginalClass ? 'col-span-4' : 'col-span-2';
+                    const currentUnits = getUnitsForCurrentConfig();
+                    const currentUnitVal = (log.unit || '').trim();
+
+                    const unitQuickSelectHTML = `
+                        <div class="bg-indigo-50/70 dark:bg-indigo-950/40 p-2.5 rounded-lg border border-indigo-200 dark:border-indigo-800/60 space-y-1.5 shadow-2xs">
+                            <div class="flex items-center justify-between text-[11px]">
+                                <label class="font-semibold text-indigo-700 dark:text-indigo-200 flex items-center gap-1.5">
+                                    <i class="fas fa-book text-indigo-600 dark:text-indigo-400 text-xs"></i>
+                                    <span>現階段數學單元 (點選帶入或手動自訂)</span>
+                                </label>
+                                <span id="log-unit-status-${index}" class="text-[10px] text-indigo-600 dark:text-indigo-300">
+                                    ${currentUnitVal ? '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 已設定單元</span>' : '點選下拉快速帶入'}
+                                </span>
+                            </div>
+                            <div class="flex flex-col sm:flex-row gap-2">
+                                <select id="log-unit-select-${index}" onchange="updateLogUnitSelect(${index}, this.value)" class="flex-1 bg-white dark:bg-gray-900 hover:bg-slate-50 dark:hover:bg-gray-850 border border-indigo-200 dark:border-indigo-700/80 text-slate-800 dark:text-gray-100 text-xs px-2.5 py-1.5 rounded-md cursor-pointer focus:ring-2 focus:ring-indigo-500/40 outline-none transition-colors">
+                                    <option value="" class="bg-white dark:bg-gray-900 text-slate-400 dark:text-gray-500">
+                                        ${currentUnits.length > 0 ? '-- 點擊快速帶入課本單元 --' : '-- 尚未設定單元，可直接手動輸入 --'}
+                                    </option>
+                                    ${currentUnits.map(u => {
+                                        const isSelected = currentUnitVal === u.name.trim();
+                                        return `<option value="${u.name}" ${isSelected ? 'selected' : ''} class="bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 py-1">${u.badge} ${u.name}</option>`;
+                                    }).join('')}
+                                </select>
+                                <input type="text" id="log-unit-input-${index}" value="${log.unit || ''}" oninput="updateLog(${index}, 'unit', this.value)" class="flex-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2.5 py-1.5 rounded-md focus:ring-2 focus:ring-indigo-500/40 outline-none" placeholder="單元名稱 (可點左側選單或在此修改)">
+                            </div>
+                        </div>
+                    `;
+
+                    let dateClass = isOriginalClass ? 'hidden' : 'col-span-3';
+                    let evalClass = isOriginalClass ? 'col-span-6' : 'col-span-3';
                     inputsHTML = `
+                        ${unitQuickSelectHTML}
                         ${quickSelectHTML}
                         <div class="grid grid-cols-6 gap-2">
-                            <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="${dateClass} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" style="${dateStyle}">
-                            <input type="text" value="${log.unit || ''}" oninput="updateLog(${index}, 'unit', this.value)" class="${unitClass} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" placeholder="單元名稱">
-                            <select onchange="updateLog(${index}, 'eval', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
+                            <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="${dateClass} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
+                            <select onchange="updateLog(${index}, 'eval', this.value)" class="${evalClass} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
                                 <option value="良好" ${log.eval === '良好' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">良好</option>
                                 <option value="尚可" ${log.eval === '尚可' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">尚可</option>
                                 <option value="待改進" ${log.eval === '待改進' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">待改進</option>
