@@ -2748,8 +2748,8 @@
                                     ${currentUnitVal ? '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 已設定單元</span>' : '點選下拉快速帶入'}
                                 </span>
                             </div>
-                            <div class="flex flex-col sm:flex-row gap-2">
-                                <select id="log-unit-select-${index}" onchange="updateLogUnitSelect(${index}, this.value)" class="flex-1 bg-white dark:bg-gray-900 hover:bg-slate-50 dark:hover:bg-gray-850 border border-indigo-200 dark:border-indigo-700/80 text-slate-800 dark:text-gray-100 text-xs px-2.5 py-1.5 rounded-md cursor-pointer focus:ring-2 focus:ring-indigo-500/40 outline-none transition-colors">
+                            <div class="space-y-1.5">
+                                <select id="log-unit-select-${index}" onchange="updateLogUnitSelect(${index}, this.value)" class="w-full bg-white dark:bg-gray-900 hover:bg-slate-50 dark:hover:bg-gray-850 border border-indigo-200 dark:border-indigo-700/80 text-slate-800 dark:text-gray-100 text-xs px-2.5 py-1.5 rounded-md cursor-pointer focus:ring-2 focus:ring-indigo-500/40 outline-none transition-colors truncate">
                                     <option value="" class="bg-white dark:bg-gray-900 text-slate-400 dark:text-gray-500">
                                         ${currentUnits.length > 0 ? '-- 點擊快速帶入課本單元 --' : '-- 尚未設定單元，可直接手動輸入 --'}
                                     </option>
@@ -2758,7 +2758,7 @@
                                         return `<option value="${u.name}" ${isSelected ? 'selected' : ''} class="bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 py-1">${u.badge} ${u.name}</option>`;
                                     }).join('')}
                                 </select>
-                                <input type="text" id="log-unit-input-${index}" value="${log.unit || ''}" oninput="updateLog(${index}, 'unit', this.value)" class="flex-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2.5 py-1.5 rounded-md focus:ring-2 focus:ring-indigo-500/40 outline-none" placeholder="單元名稱 (可點左側選單或在此修改)">
+                                <input type="text" id="log-unit-input-${index}" value="${log.unit || ''}" oninput="updateLog(${index}, 'unit', this.value)" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2.5 py-1.5 rounded-md focus:ring-2 focus:ring-indigo-500/40 outline-none" placeholder="單元名稱 (可由上方選取或在此直接編輯)">
                             </div>
                         </div>
                     `;
