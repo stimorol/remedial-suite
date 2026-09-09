@@ -33,6 +33,12 @@
     <!-- 引入 html2pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
+    <!-- 引入 SheetJS (Excel .xlsx 支援) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- 引入 docx.js (Word .docx 支援) -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
@@ -173,6 +179,11 @@
         #pdf-content-wrapper { width: 210mm; margin: 0 auto; background: white; }
         #pdf-staging-area .a4-paper { margin: 0 !important; box-shadow: none !important; border: none !important; page-break-after: always; }
         #pdf-staging-area .a4-paper:last-child { page-break-after: avoid; }
+
+        /* 列印與 PDF 時自動隱藏示範徽章與無關操作 */
+        @media print {
+            .no-print { display: none !important; }
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 flex flex-col h-screen overflow-hidden transition-colors duration-200">
@@ -460,10 +471,10 @@
                         <textarea id="resultOutput" readonly class="w-full h-44 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-xs md:text-sm font-mono text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 outline-none resize-y" placeholder="點擊上方重組按鈕後，目標清單將顯示於此..."></textarea>
                     </div>
 
-                    <!-- 操作按鈕群：一鍵帶入課程規劃 + 複製 + 佐證CSV -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                    <!-- 操作按鈕群：一鍵帶入課程規劃 + 複製 + 佐證CSV + 佐證Excel -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
                         <!-- 核心整合按鈕 -->
-                        <button id="syncToPlannerBtn" onclick="syncGoalsToPlanner()" class="sm:col-span-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-2.5 px-3 rounded-lg shadow transition flex items-center justify-center gap-2 text-xs md:text-sm">
+                        <button id="syncToPlannerBtn" onclick="syncGoalsToPlanner()" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-2.5 px-3 rounded-lg shadow transition flex items-center justify-center gap-2 text-xs md:text-sm">
                             <i class="fas fa-arrow-right-circle text-base"></i>
                             <span>帶入步驟 2 課程規劃表</span>
                         </button>
@@ -474,8 +485,13 @@
                         </button>
 
                         <button id="exportCsvBtn" class="bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 font-medium py-2.5 px-3 rounded-lg transition flex items-center justify-center gap-2 text-xs md:text-sm">
-                            <i class="fas fa-file-export"></i>
+                            <i class="fas fa-file-csv"></i>
                             <span>下載分析佐證表 (CSV)</span>
+                        </button>
+
+                        <button id="exportExcelBtn" onclick="exportStep1Excel()" class="bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-medium py-2.5 px-3 rounded-lg transition flex items-center justify-center gap-2 text-xs md:text-sm shadow-xs">
+                            <i class="fas fa-file-excel"></i>
+                            <span>下載佐證表 (Excel)</span>
                         </button>
                     </div>
                 </div>
@@ -522,6 +538,32 @@
 
                 <div class="flex-1 overflow-y-auto p-3.5 space-y-4 custom-scrollbar">
                     
+                    <!-- 示範資料提示橫幅 (防呆機制) -->
+                    <div id="demo-alert-banner" class="hidden bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 rounded-xl p-3 shadow-xs space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-start gap-2">
+                                <i class="fas fa-lightbulb text-amber-500 mt-0.5 text-sm shrink-0"></i>
+                                <div>
+                                    <div class="text-xs font-bold text-amber-900 dark:text-amber-200">目前載入示範用預設資料</div>
+                                    <div class="text-[11px] text-amber-700 dark:text-amber-300/90 leading-relaxed mt-0.5">
+                                        為方便您預覽 A4 公文排版效果，系統目前填有示範學校、學生與日誌。您可以一鍵轉為空白表格開始自訂，或直接在下方各欄位編輯。
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="dismissDemoBanner()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 text-xs shrink-0" title="隱藏提示">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2 pt-1 border-t border-amber-200/60 dark:border-amber-900/40">
+                            <button type="button" onclick="clearDemoDataToBlank()" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-semibold shadow-2xs transition flex items-center gap-1.5">
+                                <i class="fas fa-eraser"></i> 一鍵轉為空白表格
+                            </button>
+                            <button type="button" onclick="dismissDemoBanner()" class="px-2.5 py-1 bg-white/80 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded text-xs transition">
+                                保留並手動修改
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- 格式選擇 -->
                     <div class="bg-blue-50/80 dark:bg-gray-800 p-3 rounded-xl border border-blue-200 dark:border-blue-900/50 shadow-xs">
                         <label class="block text-blue-900 dark:text-blue-300 text-xs font-bold mb-1.5 flex items-center gap-1.5">
@@ -653,9 +695,14 @@
                             <h3 class="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
                                 <i class="fas fa-users"></i> 學生名單與評量成績
                             </h3>
-                            <button onclick="addStudent()" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-xs font-medium">
-                                <i class="fas fa-plus"></i> 新增學生
-                            </button>
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="confirmClearStudents()" class="bg-gray-100 dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-950/40 text-gray-600 hover:text-red-600 dark:text-gray-300 dark:hover:text-red-400 border border-gray-300 dark:border-gray-600 px-2 py-1 rounded-lg transition flex items-center gap-1 shadow-xs font-medium text-xs" title="清空學生名單">
+                                    <i class="fas fa-trash-can"></i> 清空名冊
+                                </button>
+                                <button onclick="addStudent()" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-xs font-medium">
+                                    <i class="fas fa-plus"></i> 新增學生
+                                </button>
+                            </div>
                         </div>
 
                         <!-- 姓名去識別化遮罩開關 -->
@@ -683,6 +730,9 @@
                                 <i class="fas fa-calendar-check"></i> 課堂日誌記錄
                             </h3>
                             <div class="flex items-center gap-1.5">
+                                <button onclick="confirmClearLogs()" class="bg-gray-100 dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-950/40 text-gray-600 hover:text-red-600 dark:text-gray-300 dark:hover:text-red-400 border border-gray-300 dark:border-gray-600 px-2 py-1 rounded-lg transition flex items-center gap-1 shadow-xs font-medium text-xs" title="清空全部課堂日誌">
+                                    <i class="fas fa-trash-can"></i> 清空日誌
+                                </button>
                                 <button onclick="autoGenerateScheduleLogs()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-xs font-medium" title="依開課日期與時段自動排程">
                                     <i class="fas fa-magic"></i> 自動排課
                                 </button>
@@ -699,7 +749,7 @@
 
                 </div>
 
-                <!-- 底部按鈕區：匯出/匯入/PDF -->
+                <!-- 底部按鈕區：匯出/匯入/PDF/Word -->
                 <div class="p-3.5 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shrink-0 space-y-2.5">
                     <div class="flex gap-2">
                         <button onclick="importJSON()" class="flex-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs py-2 rounded-lg font-semibold transition flex items-center justify-center gap-1.5 border border-gray-300 dark:border-gray-700">
@@ -709,9 +759,14 @@
                             <i class="fas fa-file-export"></i> 備份 JSON
                         </button>
                     </div>
-                    <button onclick="downloadPDF()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2">
-                        <i class="fas fa-file-pdf"></i> 下載排版完成之 A4 PDF
-                    </button>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button onclick="downloadPDF()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs sm:text-sm py-2.5 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2">
+                            <i class="fas fa-file-pdf"></i> 下載 A4 PDF
+                        </button>
+                        <button onclick="downloadWord()" class="w-full bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 text-xs sm:text-sm py-2.5 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2">
+                            <i class="fas fa-file-word"></i> 匯出 Word (.docx)
+                        </button>
+                    </div>
                     <input type="file" id="fileInput" class="hidden" accept=".json" onchange="handleFileSelect(event)">
                     
                     <!-- 版權與安心使用宣告 -->
@@ -1607,6 +1662,71 @@
             document.body.removeChild(link);
         });
 
+        // 下載佐證 Excel (.xlsx)
+        function exportStep1Excel() {
+            if (!parsedData || parsedData.length === 0) {
+                showAlert("請先讀取並分析測驗 CSV 檔案。");
+                return;
+            }
+            if (typeof XLSX === 'undefined') {
+                showAlert("Excel 匯出組件尚未就緒，請檢查網路連線或稍後再試。");
+                return;
+            }
+
+            const aoa = [];
+            let firstDataRowIdx = Math.min(...parsedData.map(p => p.id));
+            for (let i = 0; i < firstDataRowIdx; i++) {
+                aoa.push([...rawRows[i]]);
+            }
+
+            const sortFunc = (items) => {
+                let sorted = [...items];
+                if (currentSubject === 'math') {
+                    sorted.sort((a, b) => getMathContextScore(a.code) - getMathContextScore(b.code));
+                } else {
+                    sorted.sort((a, b) => a.qNum - b.qNum);
+                }
+                return sorted;
+            };
+
+            const selectedItems = parsedData.filter(item => item.selected && !item.isZeroError);
+            const unselectedItems = parsedData.filter(item => !item.selected && !item.isZeroError);
+            const zeroErrorItems = parsedData.filter(item => item.isZeroError);
+
+            const outDataRows = [
+                ...sortFunc(selectedItems),
+                ...sortFunc(unselectedItems),
+                ...sortFunc(zeroErrorItems)
+            ];
+
+            outDataRows.forEach(item => {
+                aoa.push([...rawRows[item.id]]);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+            // 自動計算最適欄寬
+            const colWidths = [];
+            aoa.forEach(row => {
+                row.forEach((cell, cIdx) => {
+                    const valStr = String(cell != null ? cell : '');
+                    let len = 0;
+                    for (let ch of valStr) {
+                        len += ch.charCodeAt(0) > 255 ? 2 : 1;
+                    }
+                    if (!colWidths[cIdx] || len > colWidths[cIdx]) {
+                        colWidths[cIdx] = len;
+                    }
+                });
+            });
+            ws['!cols'] = colWidths.map(w => ({ wch: Math.min(Math.max(w + 2, 8), 60) }));
+
+            XLSX.utils.book_append_sheet(wb, ws, "學習扶助分析佐證表");
+            const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            XLSX.writeFile(wb, `學習扶助分析佐證表_${currentSubject}_${timestamp}.xlsx`);
+        }
+
         // 雙系統核心串聯：一鍵將目標注入 Course Planner
         function syncGoalsToPlanner() {
             let goalsText = resultOutput.value.trim();
@@ -1621,32 +1741,58 @@
                 goalsText = resultOutput.value.trim();
             }
 
-            // 同步科目與目標
-            appState.objectives = goalsText;
-            document.getElementById('objectives').value = goalsText;
+            const applySync = (shouldClearLogs = false) => {
+                // 同步科目與目標
+                appState.objectives = goalsText;
+                document.getElementById('objectives').value = goalsText;
 
-            // 自動適配 Planner 的科目表格樣板
-            if (currentSubject === 'chinese') {
-                appState.format = 'chinese';
-            } else if (currentSubject === 'english') {
-                appState.format = 'english';
-            } else if (currentSubject === 'math') {
-                // 若原本不是數學，預設為學期中學扶班
-                if (!appState.format.startsWith('math')) {
-                    appState.format = 'math_semester_remedial';
+                // 若選擇一併清空示範日誌
+                if (shouldClearLogs) {
+                    appState.logs = [];
                 }
+
+                // 自動適配 Planner 的科目表格樣板
+                if (currentSubject === 'chinese') {
+                    appState.format = 'chinese';
+                } else if (currentSubject === 'english') {
+                    appState.format = 'english';
+                } else if (currentSubject === 'math') {
+                    // 若原本不是數學，預設為學期中學扶班
+                    if (!appState.format.startsWith('math')) {
+                        appState.format = 'math_semester_remedial';
+                    }
+                }
+                document.getElementById('formatSelect').value = appState.format;
+                updateSemesterOptions();
+                updateTextbookPublisherUI();
+
+                // 儲存並渲染
+                saveAndRender();
+                renderLogInputs();
+                updateDemoBannerUI();
+
+                // 平滑切換至 Planner 分頁
+                switchMainTab('planner');
+            };
+
+            // 智慧防呆：若當前步驟二仍有示範日誌，詢問是否一併清空
+            if (isDemoState() && appState.logs && appState.logs.length > 0) {
+                showConfirm(
+                    "教學目標已成功重組！\n\n系統偵測到步驟二仍留有預設的示範課堂日誌。\n是否一併清空舊示範日誌，以便直接在步驟二使用「自動排課」生成您的專屬課表？",
+                    () => {
+                        applySync(true);
+                        showAlert("已成功帶入教學目標並清空舊示範日誌！\n您現在可直接點擊「自動排課」產生最新進度。");
+                    },
+                    () => {
+                        applySync(false);
+                        showAlert("已成功將教學目標同步至課程規劃表。");
+                    },
+                    '<i class="fas fa-check-circle text-emerald-500"></i> 目標帶入成功'
+                );
+            } else {
+                applySync(false);
+                showAlert("已成功將教學目標同步至課程規劃表。\n\n您可以在左側微調學生名單與日誌，右側已自動生成最新的 A4 預覽。");
             }
-            document.getElementById('formatSelect').value = appState.format;
-            updateSemesterOptions();
-            updateTextbookPublisherUI();
-
-            // 儲存並渲染
-            saveAndRender();
-            renderLogInputs();
-
-            // 平滑切換至 Planner 分頁
-            switchMainTab('planner');
-            showAlert("已成功將教學目標同步至課程規劃表。\n\n您可以在左側微調學生名單與日誌，右側已自動生成最新的 A4 預覽。");
         }
 
 
@@ -2045,6 +2191,85 @@
         if (!appState.schoolInfo.textbookPublisher) appState.schoolInfo.textbookPublisher = 'knsh';
         if (!appState.schoolInfo.customUnits) appState.schoolInfo.customUnits = [];
         if (typeof appState.anonymizeStudents === 'undefined') appState.anonymizeStudents = false;
+        if (typeof appState.demoDismissed === 'undefined') appState.demoDismissed = false;
+
+        // ==========================================
+        // 示範資料偵測與防呆機制 (方案 C 智慧混合模式)
+        // ==========================================
+        function isDemoState() {
+            if (appState.demoDismissed) return false;
+            const info = appState.schoolInfo || {};
+            const isDemoSchool = (info.schoolName === '彰化縣三春國民小學');
+            const isDemoTeacher = (info.teacher === '黃奕豪');
+            const hasDemoStudents = (appState.students || []).some(s => s.name === '李小華' || s.name === '張志明' || s.name === '陳淑芬');
+            return isDemoSchool || isDemoTeacher || hasDemoStudents;
+        }
+
+        function updateDemoBannerUI() {
+            const banner = document.getElementById('demo-alert-banner');
+            if (!banner) return;
+            if (isDemoState()) {
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        function dismissDemoBanner() {
+            appState.demoDismissed = true;
+            updateDemoBannerUI();
+        }
+
+        function clearDemoDataToBlank() {
+            showConfirm(
+                "確定要將示範資料轉為空白表格嗎？\n（將清空示範學校名稱、授課教師、班別、學生名冊與課堂日誌）",
+                () => {
+                    if (!appState.schoolInfo) appState.schoolInfo = {};
+                    appState.schoolInfo.schoolName = "";
+                    appState.schoolInfo.teacher = "";
+                    appState.schoolInfo.className = "";
+                    appState.students = [{ name: "", score1: "", score2: "" }];
+                    appState.logs = [];
+                    appState.demoDismissed = true;
+                    applyStateToUI();
+                    renderStudentInputs();
+                    renderLogInputs();
+                    saveAndRender();
+                    updateDemoBannerUI();
+                    showAlert("已成功轉為空白表格！您可以開始輸入自己的班級資料。");
+                },
+                null,
+                '<i class="fas fa-eraser text-amber-500"></i> 轉為空白表格'
+            );
+        }
+
+        function confirmClearStudents() {
+            showConfirm(
+                "確定要清空學生名冊嗎？\n（清空後將保留一列空白以供輸入）",
+                () => {
+                    appState.students = [{ name: "", score1: "", score2: "" }];
+                    renderStudentInputs();
+                    saveAndRender();
+                    updateDemoBannerUI();
+                },
+                null,
+                '<i class="fas fa-trash-can text-red-500"></i> 清空學生名冊'
+            );
+        }
+
+        function confirmClearLogs() {
+            showConfirm(
+                "確定要清空所有課堂日誌記錄嗎？",
+                () => {
+                    appState.logs = [];
+                    renderLogInputs();
+                    saveAndRender();
+                    updateDemoBannerUI();
+                },
+                null,
+                '<i class="fas fa-trash-can text-red-500"></i> 清空課堂日誌'
+            );
+        }
 
         function formatDateToROC(dateStr) {
             if (!dateStr) return '';
@@ -2769,6 +2994,7 @@
         function saveAndRender() {
             localStorage.setItem('mathPlanState', JSON.stringify(appState));
             renderPreview();
+            updateDemoBannerUI();
         }
 
         function exportJSON() {
@@ -3194,6 +3420,15 @@
             let { page, contentWrapper } = createNewPage();
             container.appendChild(page);
 
+            // 若為示範模式，於預覽畫面右上角顯示醒目但溫和之示範徽章 (列印/PDF/Word 自動隱藏)
+            if (isDemoState()) {
+                const demoBadge = document.createElement('div');
+                demoBadge.className = "no-print absolute top-3 right-3 bg-amber-100/90 text-amber-800 dark:bg-amber-950/85 dark:text-amber-300 border border-amber-300 dark:border-amber-700 px-2.5 py-1 rounded-full text-xs font-bold shadow-xs flex items-center gap-1.5 pointer-events-none select-none z-10";
+                demoBadge.innerHTML = '<i class="fas fa-lightbulb text-amber-500"></i> 示範資料預覽模式';
+                page.style.position = 'relative';
+                page.appendChild(demoBadge);
+            }
+
             const headerDiv = document.createElement('div');
             headerDiv.innerHTML = headerHTML;
             contentWrapper.appendChild(headerDiv);
@@ -3281,6 +3516,8 @@
             pages.forEach(page => {
                 const clone = page.cloneNode(true);
                 clone.removeAttribute('id');
+                // 移除示範徽章等不該進入正式 PDF 的元素
+                clone.querySelectorAll('.no-print').forEach(el => el.remove());
                 contentWrapper.appendChild(clone);
                 clonedPages.push(clone);
             });
@@ -3332,6 +3569,411 @@
         }
 
         // ==========================================
+        // 匯出 Microsoft Word (.docx) 表格公文
+        // ==========================================
+        async function downloadWord() {
+            if (typeof window.docx === 'undefined') {
+                showAlert("Word 匯出組件尚未就緒，請檢查網路連線或稍後再試。");
+                return;
+            }
+
+            const {
+                Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+                WidthType, AlignmentType, ShadingType, BorderStyle, VerticalAlign
+            } = window.docx;
+
+            const { schoolInfo, objectives, students, logs, format } = appState;
+
+            // 格式標題
+            let titleText = "數學課程規劃與日誌";
+            if (format === 'math_semester_original') titleText = "數學簡要課程規劃";
+            if (format === 'chinese') titleText = "國語課程規劃與日誌";
+            if (format === 'english') titleText = "英語課程規劃與日誌";
+
+            const docChildren = [];
+
+            // 1. 頁首大標題
+            docChildren.push(
+                new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 80 },
+                    children: [
+                        new TextRun({
+                            text: `${schoolInfo.schoolName || ''} ${schoolInfo.schoolYear || ''}學年度 ${schoolInfo.semester || ''} 「學習扶助實施方案」`,
+                            bold: true,
+                            size: 26, // 13pt
+                            font: "微軟正黑體"
+                        })
+                    ]
+                }),
+                new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 200 },
+                    children: [
+                        new TextRun({
+                            text: titleText,
+                            bold: true,
+                            size: 34, // 17pt
+                            font: "微軟正黑體"
+                        })
+                    ]
+                })
+            );
+
+            // 通用表格邊框樣式
+            const cellBorder = {
+                top: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 4, color: "000000" }
+            };
+
+            // 欄位背景灰色
+            const grayShading = {
+                fill: "F3F4F6",
+                type: ShadingType.CLEAR
+            };
+
+            // 輔助函式：建立表格儲存格
+            function createCell(text, options = {}) {
+                const isHeader = options.isHeader || false;
+                const align = options.align || (isHeader ? AlignmentType.CENTER : AlignmentType.LEFT);
+                const colSpan = options.colSpan || 1;
+                const rowSpan = options.rowSpan || 1;
+                const widthPercent = options.widthPercent;
+
+                const cellConfig = {
+                    borders: cellBorder,
+                    columnSpan: colSpan,
+                    rowSpan: rowSpan,
+                    verticalAlign: VerticalAlign.CENTER,
+                    margins: { top: 100, bottom: 100, left: 120, right: 120 },
+                    children: []
+                };
+
+                if (isHeader) {
+                    cellConfig.shading = grayShading;
+                }
+
+                if (widthPercent) {
+                    cellConfig.width = { size: widthPercent * 100, type: WidthType.PERCENTAGE };
+                }
+
+                const lines = String(text != null ? text : '').split('\n');
+                lines.forEach((line) => {
+                    cellConfig.children.push(
+                        new Paragraph({
+                            alignment: align,
+                            spacing: { before: 20, after: 20 },
+                            children: [
+                                new TextRun({
+                                    text: line,
+                                    bold: isHeader,
+                                    size: options.fontSize || 20, // 10pt
+                                    font: "微軟正黑體"
+                                })
+                            ]
+                        })
+                    );
+                });
+
+                return new TableCell(cellConfig);
+            }
+
+            // 2. 行政資料表 (Table 1)
+            const subjectName = (format === 'chinese' ? '國語' : (format === 'english' ? '英語' : '數學'));
+            const adminTable = new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: cellBorder,
+                rows: [
+                    new TableRow({
+                        children: [
+                            createCell("班別", { isHeader: true, widthPercent: 15 }),
+                            createCell(schoolInfo.className || '', { widthPercent: 20 }),
+                            createCell("教學者", { isHeader: true, widthPercent: 12 }),
+                            createCell(schoolInfo.teacher || '', { widthPercent: 20 }),
+                            createCell("學生人數", { isHeader: true, widthPercent: 13 }),
+                            createCell(`${students.length} 人`, { widthPercent: 20 })
+                        ]
+                    }),
+                    new TableRow({
+                        children: [
+                            createCell("教授科目", { isHeader: true }),
+                            createCell(`(${schoolInfo.grade || ''}) 年級${subjectName}`),
+                            createCell("起訖日期", { isHeader: true }),
+                            createCell(schoolInfo.dateRange || '', { colSpan: 3 })
+                        ]
+                    }),
+                    new TableRow({
+                        children: [
+                            createCell("上課時間", { isHeader: true }),
+                            createCell(schoolInfo.classTime || '', { colSpan: 3 }),
+                            createCell("總節數", { isHeader: true }),
+                            createCell(`${schoolInfo.totalSessions || 0} 節`)
+                        ]
+                    }),
+                    new TableRow({
+                        children: [
+                            createCell("教學目標\n(基本學習內容)", { isHeader: true }),
+                            createCell(objectives || '', { colSpan: 5 })
+                        ]
+                    })
+                ]
+            });
+            docChildren.push(adminTable);
+
+            // 空格分隔
+            docChildren.push(new Paragraph({ spacing: { before: 120, after: 80 } }));
+
+            // 3. 學生名單與評量 (Table 2, 每 6 人一組)
+            const chunkSize = 6;
+            const studentChunks = [];
+            if (students.length === 0) studentChunks.push([]);
+            else {
+                for (let i = 0; i < students.length; i += chunkSize) {
+                    studentChunks.push(students.slice(i, i + chunkSize));
+                }
+            }
+
+            studentChunks.forEach((chunk, chunkIdx) => {
+                const padded = [...chunk];
+                while (padded.length < 6) padded.push({ name: "", score1: "", score2: "" });
+
+                const rowNumCells = [createCell("學生編號", { isHeader: true, widthPercent: 16 })];
+                const rowNameCells = [createCell("學生姓名", { isHeader: true, widthPercent: 16 })];
+                const rowS1Cells = [createCell("前測/期中\n測驗成績", { isHeader: true, widthPercent: 16 })];
+                const rowS2Cells = [createCell("後測/期末\n測驗成績", { isHeader: true, widthPercent: 16 })];
+
+                padded.forEach((s, idx) => {
+                    const num = (chunkIdx * chunkSize) + idx + 1;
+                    const showNum = (chunkIdx * chunkSize) + idx < students.length ? num.toString() : "";
+                    const displayName = (appState.anonymizeStudents && s.name) ? maskStudentName(s.name) : (s.name || "");
+                    
+                    rowNumCells.push(createCell(showNum, { align: AlignmentType.CENTER, widthPercent: 14 }));
+                    rowNameCells.push(createCell(displayName, { align: AlignmentType.CENTER, widthPercent: 14 }));
+                    rowS1Cells.push(createCell(s.score1 || '', { align: AlignmentType.CENTER, widthPercent: 14 }));
+                    rowS2Cells.push(createCell(s.score2 || '', { align: AlignmentType.CENTER, widthPercent: 14 }));
+                });
+
+                const stuTable = new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    borders: cellBorder,
+                    rows: [
+                        new TableRow({ children: rowNumCells }),
+                        new TableRow({ children: rowNameCells }),
+                        new TableRow({ children: rowS1Cells }),
+                        new TableRow({ children: rowS2Cells })
+                    ]
+                });
+                docChildren.push(stuTable);
+                docChildren.push(new Paragraph({ spacing: { before: 80, after: 80 } }));
+            });
+
+            // 4. 課堂日誌表 (Table 3)
+            const logRows = [];
+
+            if (format === 'chinese') {
+                logRows.push(
+                    new TableRow({
+                        children: [
+                            createCell("目標代碼", { isHeader: true, rowSpan: 2, widthPercent: 10 }),
+                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthPercent: 10 }),
+                            createCell("教學/學習策略", { isHeader: true, rowSpan: 2, widthPercent: 30 }),
+                            createCell("教材選用", { isHeader: true, rowSpan: 2, widthPercent: 18 }),
+                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthPercent: 20 }),
+                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthPercent: 12 })
+                        ]
+                    }),
+                    new TableRow({
+                        children: [
+                            createCell("良好", { isHeader: true, widthPercent: 6 }),
+                            createCell("尚可", { isHeader: true, widthPercent: 6 }),
+                            createCell("待改進", { isHeader: true, widthPercent: 8 })
+                        ]
+                    })
+                );
+                logs.forEach(log => {
+                    logRows.push(new TableRow({
+                        children: [
+                            createCell(log.code || '', { align: AlignmentType.CENTER }),
+                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER }),
+                            createCell(log.content || ''),
+                            createCell(log.material || ''),
+                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell('')
+                        ]
+                    }));
+                });
+            } else if (format === 'english') {
+                logRows.push(
+                    new TableRow({
+                        children: [
+                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthPercent: 10 }),
+                            createCell("教學內容", { isHeader: true, rowSpan: 2, widthPercent: 40 }),
+                            createCell("教材選用", { isHeader: true, rowSpan: 2, widthPercent: 18 }),
+                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthPercent: 20 }),
+                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthPercent: 12 })
+                        ]
+                    }),
+                    new TableRow({
+                        children: [
+                            createCell("良好", { isHeader: true, widthPercent: 6 }),
+                            createCell("尚可", { isHeader: true, widthPercent: 6 }),
+                            createCell("待改進", { isHeader: true, widthPercent: 8 })
+                        ]
+                    })
+                );
+                logs.forEach(log => {
+                    logRows.push(new TableRow({
+                        children: [
+                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER }),
+                            createCell(log.content || ''),
+                            createCell(log.material || ''),
+                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell('')
+                        ]
+                    }));
+                });
+            } else if (format === 'math_semester_original') {
+                logRows.push(
+                    new TableRow({
+                        children: [
+                            createCell("現階段數學單元", { isHeader: true, rowSpan: 2, widthPercent: 24 }),
+                            createCell("學習扶助教學內容", { isHeader: true, rowSpan: 2, widthPercent: 42 }),
+                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthPercent: 20 }),
+                            createCell("備註", { isHeader: true, rowSpan: 2, widthPercent: 14 })
+                        ]
+                    }),
+                    new TableRow({
+                        children: [
+                            createCell("良好", { isHeader: true, widthPercent: 6 }),
+                            createCell("尚可", { isHeader: true, widthPercent: 6 }),
+                            createCell("待改進", { isHeader: true, widthPercent: 8 })
+                        ]
+                    })
+                );
+                logs.forEach(log => {
+                    logRows.push(new TableRow({
+                        children: [
+                            createCell(log.unit || ''),
+                            createCell(log.content || ''),
+                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell('')
+                        ]
+                    }));
+                });
+            } else if (format === 'math_semester_remedial') {
+                logRows.push(
+                    new TableRow({
+                        children: [
+                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthPercent: 10 }),
+                            createCell("現階段數學單元", { isHeader: true, rowSpan: 2, widthPercent: 18 }),
+                            createCell("學習扶助教學內容", { isHeader: true, rowSpan: 2, widthPercent: 36 }),
+                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthPercent: 20 }),
+                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthPercent: 16 })
+                        ]
+                    }),
+                    new TableRow({
+                        children: [
+                            createCell("良好", { isHeader: true, widthPercent: 6 }),
+                            createCell("尚可", { isHeader: true, widthPercent: 6 }),
+                            createCell("待改進", { isHeader: true, widthPercent: 8 })
+                        ]
+                    })
+                );
+                logs.forEach(log => {
+                    logRows.push(new TableRow({
+                        children: [
+                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER }),
+                            createCell(log.unit || ''),
+                            createCell(log.content || ''),
+                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell('')
+                        ]
+                    }));
+                });
+            } else {
+                // math_vacation
+                logRows.push(
+                    new TableRow({
+                        children: [
+                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthPercent: 11 }),
+                            createCell("學習扶助教學內容", { isHeader: true, rowSpan: 2, widthPercent: 55 }),
+                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthPercent: 20 }),
+                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthPercent: 14 })
+                        ]
+                    }),
+                    new TableRow({
+                        children: [
+                            createCell("良好", { isHeader: true, widthPercent: 6 }),
+                            createCell("尚可", { isHeader: true, widthPercent: 6 }),
+                            createCell("待改進", { isHeader: true, widthPercent: 8 })
+                        ]
+                    })
+                );
+                logs.forEach(log => {
+                    logRows.push(new TableRow({
+                        children: [
+                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER }),
+                            createCell(log.content || ''),
+                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER }),
+                            createCell('')
+                        ]
+                    }));
+                });
+            }
+
+            const logTable = new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: cellBorder,
+                rows: logRows
+            });
+            docChildren.push(logTable);
+
+            const doc = new Document({
+                sections: [{
+                    properties: {
+                        page: {
+                            margin: {
+                                top: 720, // 0.5 inch (approx 12.7mm)
+                                bottom: 720,
+                                left: 720,
+                                right: 720
+                            }
+                        }
+                    },
+                    children: docChildren
+                }]
+            });
+
+            try {
+                const blob = await Packer.toBlob(doc);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                const fileName = `${schoolInfo.className || '課程規劃'}_學習扶助日誌.docx`;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                console.error("Word 匯出失敗", err);
+                showAlert("Word 檔案匯出發生錯誤，請稍後再試。");
+            }
+        }
+
+        // ==========================================
         // 初始載入與初始化
         // ==========================================
         document.addEventListener('DOMContentLoaded', () => {
@@ -3352,6 +3994,7 @@
             applyStateToUI();
             renderStudentInputs();
             renderLogInputs();
+            updateDemoBannerUI();
             renderPreview();
         });
     </script>
