@@ -3688,7 +3688,7 @@
         }
 
         // ==========================================
-        // 匯出 Microsoft Word (.docx) 表格公文
+        // 匯出 Microsoft Word (.docx) 表格公文 (方案 A：精確點數網格鎖定)
         // ==========================================
         async function downloadWord() {
             if (typeof window.docx === 'undefined') {
@@ -3698,7 +3698,7 @@
 
             const {
                 Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-                WidthType, AlignmentType, ShadingType, BorderStyle, VerticalAlign
+                WidthType, AlignmentType, ShadingType, BorderStyle, VerticalAlign, TableLayoutType
             } = window.docx;
 
             const { schoolInfo, objectives, students, logs, format } = appState;
@@ -3710,6 +3710,12 @@
             if (format === 'english') titleText = "英語課程規劃與日誌";
 
             const docChildren = [];
+
+            // A4 紙張與邊界設定 (以 dxa / twips 計算：1 pt = 20 dxa, 1 inch = 1440 dxa)
+            // A4 寬度 = 11906 dxa (210mm)，高度 = 16838 dxa (297mm)
+            // 上下左右邊界設為 0.5 inch (720 dxa)，可列印內容寬度為 11906 - (720 * 2) = 10466 dxa
+            const PAGE_MARGIN = 720;
+            const TOTAL_WIDTH = 10466;
 
             // 1. 頁首大標題
             docChildren.push(
@@ -3727,19 +3733,19 @@
                 }),
                 new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    spacing: { after: 200 },
+                    spacing: { after: 180 },
                     children: [
                         new TextRun({
                             text: titleText,
                             bold: true,
-                            size: 34, // 17pt
+                            size: 32, // 16pt
                             font: "微軟正黑體"
                         })
                     ]
                 })
             );
 
-            // 通用表格邊框樣式
+            // 通用表格邊框樣式 (細實線)
             const cellBorder = {
                 top: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
                 bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
@@ -3753,20 +3759,20 @@
                 type: ShadingType.CLEAR
             };
 
-            // 輔助函式：建立表格儲存格
+            // 輔助函式：建立表格儲存格 (支援精確 dxa 寬度)
             function createCell(text, options = {}) {
                 const isHeader = options.isHeader || false;
                 const align = options.align || (isHeader ? AlignmentType.CENTER : AlignmentType.LEFT);
                 const colSpan = options.colSpan || 1;
                 const rowSpan = options.rowSpan || 1;
-                const widthPercent = options.widthPercent;
+                const widthDxa = options.widthDxa;
 
                 const cellConfig = {
                     borders: cellBorder,
                     columnSpan: colSpan,
                     rowSpan: rowSpan,
                     verticalAlign: VerticalAlign.CENTER,
-                    margins: { top: 100, bottom: 100, left: 120, right: 120 },
+                    margins: { top: 90, bottom: 90, left: 120, right: 120 },
                     children: []
                 };
 
@@ -3774,8 +3780,8 @@
                     cellConfig.shading = grayShading;
                 }
 
-                if (widthPercent) {
-                    cellConfig.width = { size: widthPercent * 100, type: WidthType.PERCENTAGE };
+                if (widthDxa) {
+                    cellConfig.width = { size: widthDxa, type: WidthType.DXA };
                 }
 
                 const lines = String(text != null ? text : '').split('\n');
@@ -3783,7 +3789,7 @@
                     cellConfig.children.push(
                         new Paragraph({
                             alignment: align,
-                            spacing: { before: 20, after: 20 },
+                            spacing: { before: 16, after: 16 },
                             children: [
                                 new TextRun({
                                     text: line,
@@ -3799,42 +3805,47 @@
                 return new TableCell(cellConfig);
             }
 
-            // 2. 行政資料表 (Table 1)
+            // 2. 行政資料表 (Table 1: 6 欄絕對網格)
             const subjectName = (format === 'chinese' ? '國語' : (format === 'english' ? '英語' : '數學'));
+            const aCol1 = 1361, aCol2 = 2093, aCol3 = 1361, aCol4 = 2093, aCol5 = 1465, aCol6 = 2093;
+            const adminColWidths = [aCol1, aCol2, aCol3, aCol4, aCol5, aCol6]; // 總和 10466
+
             const adminTable = new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
+                width: { size: TOTAL_WIDTH, type: WidthType.DXA },
+                layout: TableLayoutType.FIXED,
+                columnWidths: adminColWidths,
                 borders: cellBorder,
                 rows: [
                     new TableRow({
                         children: [
-                            createCell("班別", { isHeader: true, widthPercent: 15 }),
-                            createCell(schoolInfo.className || '', { widthPercent: 20 }),
-                            createCell("教學者", { isHeader: true, widthPercent: 12 }),
-                            createCell(schoolInfo.teacher || '', { widthPercent: 20 }),
-                            createCell("學生人數", { isHeader: true, widthPercent: 13 }),
-                            createCell(`${students.length} 人`, { widthPercent: 20 })
+                            createCell("班別", { isHeader: true, widthDxa: aCol1 }),
+                            createCell(schoolInfo.className || '', { widthDxa: aCol2 }),
+                            createCell("教學者", { isHeader: true, widthDxa: aCol3 }),
+                            createCell(schoolInfo.teacher || '', { widthDxa: aCol4 }),
+                            createCell("學生人數", { isHeader: true, widthDxa: aCol5 }),
+                            createCell(`${students.length} 人`, { widthDxa: aCol6 })
                         ]
                     }),
                     new TableRow({
                         children: [
-                            createCell("教授科目", { isHeader: true }),
-                            createCell(`(${schoolInfo.grade || ''}) 年級${subjectName}`),
-                            createCell("起訖日期", { isHeader: true }),
-                            createCell(schoolInfo.dateRange || '', { colSpan: 3 })
+                            createCell("教授科目", { isHeader: true, widthDxa: aCol1 }),
+                            createCell(`(${schoolInfo.grade || ''}) 年級${subjectName}`, { widthDxa: aCol2 }),
+                            createCell("起訖日期", { isHeader: true, widthDxa: aCol3 }),
+                            createCell(schoolInfo.dateRange || '', { colSpan: 3, widthDxa: aCol4 + aCol5 + aCol6 })
                         ]
                     }),
                     new TableRow({
                         children: [
-                            createCell("上課時間", { isHeader: true }),
-                            createCell(schoolInfo.classTime || '', { colSpan: 3 }),
-                            createCell("總節數", { isHeader: true }),
-                            createCell(`${schoolInfo.totalSessions || 0} 節`)
+                            createCell("上課時間", { isHeader: true, widthDxa: aCol1 }),
+                            createCell(schoolInfo.classTime || '', { colSpan: 3, widthDxa: aCol2 + aCol3 + aCol4 }),
+                            createCell("總節數", { isHeader: true, widthDxa: aCol5 }),
+                            createCell(`${schoolInfo.totalSessions || 0} 節`, { widthDxa: aCol6 })
                         ]
                     }),
                     new TableRow({
                         children: [
-                            createCell("教學目標\n(基本學習內容)", { isHeader: true }),
-                            createCell(objectives || '', { colSpan: 5 })
+                            createCell("教學目標\n(基本學習內容)", { isHeader: true, widthDxa: aCol1 }),
+                            createCell(objectives || '', { colSpan: 5, widthDxa: aCol2 + aCol3 + aCol4 + aCol5 + aCol6 })
                         ]
                     })
                 ]
@@ -3842,9 +3853,9 @@
             docChildren.push(adminTable);
 
             // 空格分隔
-            docChildren.push(new Paragraph({ spacing: { before: 120, after: 80 } }));
+            docChildren.push(new Paragraph({ spacing: { before: 100, after: 60 } }));
 
-            // 3. 學生名單與評量 (Table 2, 每 6 人一組)
+            // 3. 學生名單與評量 (Table 2: 7 欄絕對網格，每 6 人一組)
             const chunkSize = 6;
             const studentChunks = [];
             if (students.length === 0) studentChunks.push([]);
@@ -3854,28 +3865,36 @@
                 }
             }
 
+            const sHdrWidth = 1465;
+            const sColWidth = 1500;
+            const sColLastWidth = 1501;
+            const studentColWidths = [sHdrWidth, sColWidth, sColWidth, sColWidth, sColWidth, sColWidth, sColLastWidth]; // 總和 10466
+
             studentChunks.forEach((chunk, chunkIdx) => {
                 const padded = [...chunk];
                 while (padded.length < 6) padded.push({ name: "", score1: "", score2: "" });
 
-                const rowNumCells = [createCell("學生編號", { isHeader: true, widthPercent: 16 })];
-                const rowNameCells = [createCell("學生姓名", { isHeader: true, widthPercent: 16 })];
-                const rowS1Cells = [createCell("前測/期中\n測驗成績", { isHeader: true, widthPercent: 16 })];
-                const rowS2Cells = [createCell("後測/期末\n測驗成績", { isHeader: true, widthPercent: 16 })];
+                const rowNumCells = [createCell("學生編號", { isHeader: true, widthDxa: sHdrWidth })];
+                const rowNameCells = [createCell("學生姓名", { isHeader: true, widthDxa: sHdrWidth })];
+                const rowS1Cells = [createCell("前測/期中\n測驗成績", { isHeader: true, widthDxa: sHdrWidth })];
+                const rowS2Cells = [createCell("後測/期末\n測驗成績", { isHeader: true, widthDxa: sHdrWidth })];
 
                 padded.forEach((s, idx) => {
                     const num = (chunkIdx * chunkSize) + idx + 1;
                     const showNum = (chunkIdx * chunkSize) + idx < students.length ? num.toString() : "";
                     const displayName = (appState.anonymizeStudents && s.name) ? maskStudentName(s.name) : (s.name || "");
-                    
-                    rowNumCells.push(createCell(showNum, { align: AlignmentType.CENTER, widthPercent: 14 }));
-                    rowNameCells.push(createCell(displayName, { align: AlignmentType.CENTER, widthPercent: 14 }));
-                    rowS1Cells.push(createCell(s.score1 || '', { align: AlignmentType.CENTER, widthPercent: 14 }));
-                    rowS2Cells.push(createCell(s.score2 || '', { align: AlignmentType.CENTER, widthPercent: 14 }));
+                    const curW = idx === 5 ? sColLastWidth : sColWidth;
+
+                    rowNumCells.push(createCell(showNum, { align: AlignmentType.CENTER, widthDxa: curW }));
+                    rowNameCells.push(createCell(displayName, { align: AlignmentType.CENTER, widthDxa: curW }));
+                    rowS1Cells.push(createCell(s.score1 || '', { align: AlignmentType.CENTER, widthDxa: curW }));
+                    rowS2Cells.push(createCell(s.score2 || '', { align: AlignmentType.CENTER, widthDxa: curW }));
                 });
 
                 const stuTable = new Table({
-                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    width: { size: TOTAL_WIDTH, type: WidthType.DXA },
+                    layout: TableLayoutType.FIXED,
+                    columnWidths: studentColWidths,
                     borders: cellBorder,
                     rows: [
                         new TableRow({ children: rowNumCells }),
@@ -3885,175 +3904,198 @@
                     ]
                 });
                 docChildren.push(stuTable);
-                docChildren.push(new Paragraph({ spacing: { before: 80, after: 80 } }));
+                docChildren.push(new Paragraph({ spacing: { before: 80, after: 60 } }));
             });
 
-            // 4. 課堂日誌表 (Table 3)
+            // 4. 課堂日誌表 (Table 3: 依 5 種版型精確鎖定絕對欄寬網格)
             const logRows = [];
+            let logColWidths = [];
 
             if (format === 'chinese') {
+                const cCode = 1047, cDate = 1047, cStrat = 3349, cMat = 1675, cGood = 628, cOk = 628, cBad = 733, cSign = 1359;
+                const cEvalTotal = cGood + cOk + cBad; // 1989
+                logColWidths = [cCode, cDate, cStrat, cMat, cGood, cOk, cBad, cSign]; // 總和 10466
+
                 logRows.push(
                     new TableRow({
                         children: [
-                            createCell("目標代碼", { isHeader: true, rowSpan: 2, widthPercent: 10 }),
-                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthPercent: 10 }),
-                            createCell("教學/學習策略", { isHeader: true, rowSpan: 2, widthPercent: 30 }),
-                            createCell("教材選用", { isHeader: true, rowSpan: 2, widthPercent: 18 }),
-                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthPercent: 20 }),
-                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthPercent: 12 })
+                            createCell("目標代碼", { isHeader: true, rowSpan: 2, widthDxa: cCode }),
+                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthDxa: cDate }),
+                            createCell("教學/學習策略", { isHeader: true, rowSpan: 2, widthDxa: cStrat }),
+                            createCell("教材選用", { isHeader: true, rowSpan: 2, widthDxa: cMat }),
+                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthDxa: cEvalTotal }),
+                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthDxa: cSign })
                         ]
                     }),
                     new TableRow({
                         children: [
-                            createCell("良好", { isHeader: true, widthPercent: 6 }),
-                            createCell("尚可", { isHeader: true, widthPercent: 6 }),
-                            createCell("待改進", { isHeader: true, widthPercent: 8 })
+                            createCell("良好", { isHeader: true, widthDxa: cGood }),
+                            createCell("尚可", { isHeader: true, widthDxa: cOk }),
+                            createCell("待改進", { isHeader: true, widthDxa: cBad })
                         ]
                     })
                 );
                 logs.forEach(log => {
                     logRows.push(new TableRow({
                         children: [
-                            createCell(log.code || '', { align: AlignmentType.CENTER }),
-                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER }),
-                            createCell(log.content || ''),
-                            createCell(log.material || ''),
-                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell('')
+                            createCell(log.code || '', { align: AlignmentType.CENTER, widthDxa: cCode }),
+                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER, widthDxa: cDate }),
+                            createCell(log.content || '', { widthDxa: cStrat }),
+                            createCell(log.material || '', { widthDxa: cMat }),
+                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: cGood }),
+                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: cOk }),
+                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: cBad }),
+                            createCell('', { widthDxa: cSign })
                         ]
                     }));
                 });
             } else if (format === 'english') {
+                const eDate = 1047, eContent = 4396, eMat = 1675, eGood = 628, eOk = 628, eBad = 733, eSign = 1359;
+                const eEvalTotal = eGood + eOk + eBad; // 1989
+                logColWidths = [eDate, eContent, eMat, eGood, eOk, eBad, eSign]; // 總和 10466
+
                 logRows.push(
                     new TableRow({
                         children: [
-                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthPercent: 10 }),
-                            createCell("教學內容", { isHeader: true, rowSpan: 2, widthPercent: 40 }),
-                            createCell("教材選用", { isHeader: true, rowSpan: 2, widthPercent: 18 }),
-                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthPercent: 20 }),
-                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthPercent: 12 })
+                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthDxa: eDate }),
+                            createCell("教學內容", { isHeader: true, rowSpan: 2, widthDxa: eContent }),
+                            createCell("教材選用", { isHeader: true, rowSpan: 2, widthDxa: eMat }),
+                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthDxa: eEvalTotal }),
+                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthDxa: eSign })
                         ]
                     }),
                     new TableRow({
                         children: [
-                            createCell("良好", { isHeader: true, widthPercent: 6 }),
-                            createCell("尚可", { isHeader: true, widthPercent: 6 }),
-                            createCell("待改進", { isHeader: true, widthPercent: 8 })
+                            createCell("良好", { isHeader: true, widthDxa: eGood }),
+                            createCell("尚可", { isHeader: true, widthDxa: eOk }),
+                            createCell("待改進", { isHeader: true, widthDxa: eBad })
                         ]
                     })
                 );
                 logs.forEach(log => {
                     logRows.push(new TableRow({
                         children: [
-                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER }),
-                            createCell(log.content || ''),
-                            createCell(log.material || ''),
-                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell('')
+                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER, widthDxa: eDate }),
+                            createCell(log.content || '', { widthDxa: eContent }),
+                            createCell(log.material || '', { widthDxa: eMat }),
+                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: eGood }),
+                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: eOk }),
+                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: eBad }),
+                            createCell('', { widthDxa: eSign })
                         ]
                     }));
                 });
             } else if (format === 'math_semester_original') {
+                const moUnit = 2512, moContent = 4605, moGood = 628, moOk = 628, moBad = 733, moNote = 1360;
+                const moEvalTotal = moGood + moOk + moBad; // 1989
+                logColWidths = [moUnit, moContent, moGood, moOk, moBad, moNote]; // 總和 10466
+
                 logRows.push(
                     new TableRow({
                         children: [
-                            createCell("現階段數學單元", { isHeader: true, rowSpan: 2, widthPercent: 24 }),
-                            createCell("學習扶助教學內容", { isHeader: true, rowSpan: 2, widthPercent: 42 }),
-                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthPercent: 20 }),
-                            createCell("備註", { isHeader: true, rowSpan: 2, widthPercent: 14 })
+                            createCell("現階段數學單元", { isHeader: true, rowSpan: 2, widthDxa: moUnit }),
+                            createCell("學習扶助教學內容", { isHeader: true, rowSpan: 2, widthDxa: moContent }),
+                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthDxa: moEvalTotal }),
+                            createCell("備註", { isHeader: true, rowSpan: 2, widthDxa: moNote })
                         ]
                     }),
                     new TableRow({
                         children: [
-                            createCell("良好", { isHeader: true, widthPercent: 6 }),
-                            createCell("尚可", { isHeader: true, widthPercent: 6 }),
-                            createCell("待改進", { isHeader: true, widthPercent: 8 })
+                            createCell("良好", { isHeader: true, widthDxa: moGood }),
+                            createCell("尚可", { isHeader: true, widthDxa: moOk }),
+                            createCell("待改進", { isHeader: true, widthDxa: moBad })
                         ]
                     })
                 );
                 logs.forEach(log => {
                     logRows.push(new TableRow({
                         children: [
-                            createCell(log.unit || ''),
-                            createCell(log.content || ''),
-                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell('')
+                            createCell(log.unit || '', { widthDxa: moUnit }),
+                            createCell(log.content || '', { widthDxa: moContent }),
+                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: moGood }),
+                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: moOk }),
+                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: moBad }),
+                            createCell('', { widthDxa: moNote })
                         ]
                     }));
                 });
             } else if (format === 'math_semester_remedial') {
+                const mrDate = 1047, mrUnit = 1884, mrContent = 3977, mrGood = 628, mrOk = 628, mrBad = 733, mrSign = 1569;
+                const mrEvalTotal = mrGood + mrOk + mrBad; // 1989
+                logColWidths = [mrDate, mrUnit, mrContent, mrGood, mrOk, mrBad, mrSign]; // 總和 10466
+
                 logRows.push(
                     new TableRow({
                         children: [
-                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthPercent: 10 }),
-                            createCell("現階段數學單元", { isHeader: true, rowSpan: 2, widthPercent: 18 }),
-                            createCell("學習扶助教學內容", { isHeader: true, rowSpan: 2, widthPercent: 36 }),
-                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthPercent: 20 }),
-                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthPercent: 16 })
+                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthDxa: mrDate }),
+                            createCell("現階段數學單元", { isHeader: true, rowSpan: 2, widthDxa: mrUnit }),
+                            createCell("學習扶助教學內容", { isHeader: true, rowSpan: 2, widthDxa: mrContent }),
+                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthDxa: mrEvalTotal }),
+                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthDxa: mrSign })
                         ]
                     }),
                     new TableRow({
                         children: [
-                            createCell("良好", { isHeader: true, widthPercent: 6 }),
-                            createCell("尚可", { isHeader: true, widthPercent: 6 }),
-                            createCell("待改進", { isHeader: true, widthPercent: 8 })
+                            createCell("良好", { isHeader: true, widthDxa: mrGood }),
+                            createCell("尚可", { isHeader: true, widthDxa: mrOk }),
+                            createCell("待改進", { isHeader: true, widthDxa: mrBad })
                         ]
                     })
                 );
                 logs.forEach(log => {
                     logRows.push(new TableRow({
                         children: [
-                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER }),
-                            createCell(log.unit || ''),
-                            createCell(log.content || ''),
-                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell('')
+                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER, widthDxa: mrDate }),
+                            createCell(log.unit || '', { widthDxa: mrUnit }),
+                            createCell(log.content || '', { widthDxa: mrContent }),
+                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mrGood }),
+                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mrOk }),
+                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mrBad }),
+                            createCell('', { widthDxa: mrSign })
                         ]
                     }));
                 });
             } else {
                 // math_vacation
+                const mvDate = 1151, mvContent = 5756, mvGood = 628, mvOk = 628, mvBad = 733, mvSign = 1570;
+                const mvEvalTotal = mvGood + mvOk + mvBad; // 1989
+                logColWidths = [mvDate, mvContent, mvGood, mvOk, mvBad, mvSign]; // 總和 10466
+
                 logRows.push(
                     new TableRow({
                         children: [
-                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthPercent: 11 }),
-                            createCell("學習扶助教學內容", { isHeader: true, rowSpan: 2, widthPercent: 55 }),
-                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthPercent: 20 }),
-                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthPercent: 14 })
+                            createCell("上課日期", { isHeader: true, rowSpan: 2, widthDxa: mvDate }),
+                            createCell("學習扶助教學內容", { isHeader: true, rowSpan: 2, widthDxa: mvContent }),
+                            createCell("學生學習與評量", { isHeader: true, colSpan: 3, widthDxa: mvEvalTotal }),
+                            createCell("授課教師\n簽名", { isHeader: true, rowSpan: 2, widthDxa: mvSign })
                         ]
                     }),
                     new TableRow({
                         children: [
-                            createCell("良好", { isHeader: true, widthPercent: 6 }),
-                            createCell("尚可", { isHeader: true, widthPercent: 6 }),
-                            createCell("待改進", { isHeader: true, widthPercent: 8 })
+                            createCell("良好", { isHeader: true, widthDxa: mvGood }),
+                            createCell("尚可", { isHeader: true, widthDxa: mvOk }),
+                            createCell("待改進", { isHeader: true, widthDxa: mvBad })
                         ]
                     })
                 );
                 logs.forEach(log => {
                     logRows.push(new TableRow({
                         children: [
-                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER }),
-                            createCell(log.content || ''),
-                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER }),
-                            createCell('')
+                            createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER, widthDxa: mvDate }),
+                            createCell(log.content || '', { widthDxa: mvContent }),
+                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mvGood }),
+                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mvOk }),
+                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mvBad }),
+                            createCell('', { widthDxa: mvSign })
                         ]
                     }));
                 });
             }
 
             const logTable = new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
+                width: { size: TOTAL_WIDTH, type: WidthType.DXA },
+                layout: TableLayoutType.FIXED,
+                columnWidths: logColWidths,
                 borders: cellBorder,
                 rows: logRows
             });
@@ -4063,11 +4105,15 @@
                 sections: [{
                     properties: {
                         page: {
+                            size: {
+                                width: 11906, // A4 寬 210mm
+                                height: 16838 // A4 高 297mm
+                            },
                             margin: {
-                                top: 720, // 0.5 inch (approx 12.7mm)
-                                bottom: 720,
-                                left: 720,
-                                right: 720
+                                top: PAGE_MARGIN,
+                                bottom: PAGE_MARGIN,
+                                left: PAGE_MARGIN,
+                                right: PAGE_MARGIN
                             }
                         }
                     },
