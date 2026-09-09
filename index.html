@@ -2000,13 +2000,31 @@
             saveAndRender();
         }
 
+        function getSubjectFromFormat(format) {
+            if (!format) return 'math';
+            if (format.startsWith('math')) return 'math';
+            if (format === 'chinese') return 'chinese';
+            if (format === 'english') return 'english';
+            return 'math';
+        }
+
         function handleFormatChange(newValue) {
             const previousValue = appState.format;
-            showConfirm(
-                "切換格式將載入該科目預設範本，是否繼續？",
-                () => { updateFormat(newValue, true); },
-                () => { document.getElementById('formatSelect').value = previousValue; }
-            );
+            if (previousValue === newValue) return;
+
+            const prevSubject = getSubjectFromFormat(previousValue);
+            const newSubject = getSubjectFromFormat(newValue);
+
+            // 若在同一科目內部切換樣板 (例如在數學三種樣板間切換)：保留步驟一帶入的教學目標與課堂日誌
+            if (prevSubject === newSubject) {
+                updateFormat(newValue, false);
+            } else {
+                showConfirm(
+                    "切換為不同科目將載入該科目的預設範本與教學目標，是否確定切換？",
+                    () => { updateFormat(newValue, true); },
+                    () => { document.getElementById('formatSelect').value = previousValue; }
+                );
+            }
         }
 
         function updateFormat(value, loadTemplate = false) {
