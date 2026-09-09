@@ -362,7 +362,7 @@
 
                     <div class="space-y-1.5 text-gray-700 dark:text-gray-300">
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" id="modal-picker-opt-mask" checked class="rounded text-amber-600 focus:ring-amber-500">
+                            <input type="checkbox" id="modal-picker-opt-mask" checked onchange="toggleModalMask(this.checked)" class="rounded text-amber-600 focus:ring-amber-500">
                             <span>同時啟動「學生姓名去識別化遮罩」（如：李○華、王○）保護個資</span>
                         </label>
                     </div>
@@ -583,7 +583,7 @@
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
                         <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 text-xs text-gray-700 dark:text-gray-300">
                             <label class="flex items-center gap-1.5 cursor-pointer select-none">
-                                <input type="checkbox" id="csv-opt-mask" checked class="rounded text-amber-600 focus:ring-amber-500">
+                                <input type="checkbox" id="csv-opt-mask" checked onchange="toggleCsvMask(this.checked)" class="rounded text-amber-600 focus:ring-amber-500">
                                 <span>同步啟用「姓名去識別化遮罩」（如：李○華、王○）</span>
                             </label>
                             <span class="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -2055,13 +2055,21 @@
         let csvStudentsDisplayMask = true;
         let modalPickerDisplayMask = true;
 
-        function toggleCsvStudentDisplayMask(checked) {
+        function toggleCsvMask(checked) {
             csvStudentsDisplayMask = !!checked;
+            const topToggle = document.getElementById('csv-display-mask-toggle');
+            if (topToggle && topToggle.checked !== csvStudentsDisplayMask) topToggle.checked = csvStudentsDisplayMask;
+            const bottomToggle = document.getElementById('csv-opt-mask');
+            if (bottomToggle && bottomToggle.checked !== csvStudentsDisplayMask) bottomToggle.checked = csvStudentsDisplayMask;
             renderCsvStudentsCard();
         }
 
-        function toggleModalPickerDisplayMask(checked) {
+        function toggleModalMask(checked) {
             modalPickerDisplayMask = !!checked;
+            const topToggle = document.getElementById('modal-display-mask-toggle');
+            if (topToggle && topToggle.checked !== modalPickerDisplayMask) topToggle.checked = modalPickerDisplayMask;
+            const bottomToggle = document.getElementById('modal-picker-opt-mask');
+            if (bottomToggle && bottomToggle.checked !== modalPickerDisplayMask) bottomToggle.checked = modalPickerDisplayMask;
             renderModalPickerStudents();
         }
 
@@ -2080,12 +2088,17 @@
             if (countEl) countEl.textContent = detectedStudentsFromCSV.length;
             grid.innerHTML = '';
 
+            const bottomToggle = document.getElementById('csv-opt-mask');
+            if (bottomToggle) {
+                csvStudentsDisplayMask = bottomToggle.checked;
+            }
+
             detectedStudentsFromCSV.forEach((st, idx) => {
                 const label = document.createElement('label');
                 label.className = "flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600 cursor-pointer text-xs transition shadow-2xs select-none";
                 
                 const displayName = csvStudentsDisplayMask ? maskStudentName(st.name) : st.name;
-                const titleText = csvStudentsDisplayMask ? `已去識別化：${maskStudentName(st.name)} (取消上方開關可檢視全名)` : st.name;
+                const titleText = csvStudentsDisplayMask ? `已去識別化：${maskStudentName(st.name)} (取消勾選「姓名去識別化遮罩」可檢視全名)` : st.name;
 
                 label.innerHTML = `
                     <input type="checkbox" data-index="${idx}" ${st.checked ? 'checked' : ''} onchange="onCsvStudentCheckboxChange(${idx}, this.checked)" class="rounded text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer">
@@ -2094,8 +2107,8 @@
                 grid.appendChild(label);
             });
 
-            const maskToggle = document.getElementById('csv-display-mask-toggle');
-            if (maskToggle) maskToggle.checked = csvStudentsDisplayMask;
+            const topToggle = document.getElementById('csv-display-mask-toggle');
+            if (topToggle) topToggle.checked = csvStudentsDisplayMask;
 
             updateCsvSelectedCountBtn();
             card.classList.remove('hidden');
@@ -2146,7 +2159,8 @@
             updateDemoBannerUI();
             switchMainTab('planner');
 
-            showAlert(`已成功將 ${selected.length} 位受測學生帶入步驟 2 學生名單！\n\n已自動切換至步驟 2 課程規劃表，且姓名去識別化遮罩已預設啟用保護個資。`);
+            const statusMsg = appState.anonymizeStudents ? '且姓名已自動去識別化顯示（如：李○華、王○）' : '已帶入完整姓名';
+            showAlert(`已成功將 ${selected.length} 位受測學生帶入步驟 2 學生名單！\n\n已自動切換至步驟 2 課程規劃表，${statusMsg}。您可以隨時在上方切換開關檢視或編輯。`);
         }
 
         function updateStep2ImportBtnVisibility() {
@@ -2186,6 +2200,11 @@
 
             const existingNames = new Set((appState.students || []).map(s => (s.name || '').trim()));
 
+            const bottomToggle = document.getElementById('modal-picker-opt-mask');
+            if (bottomToggle) {
+                modalPickerDisplayMask = bottomToggle.checked;
+            }
+
             detectedStudentsFromCSV.forEach((st, idx) => {
                 const isAlreadyIn = existingNames.has(st.name);
                 const label = document.createElement('label');
@@ -2196,7 +2215,7 @@
                     : '';
 
                 const displayName = modalPickerDisplayMask ? maskStudentName(st.name) : st.name;
-                const titleText = modalPickerDisplayMask ? `已去識別化：${maskStudentName(st.name)} (取消右上開關可檢視全名)` : st.name;
+                const titleText = modalPickerDisplayMask ? `已去識別化：${maskStudentName(st.name)} (取消下方開關可檢視全名)` : st.name;
 
                 label.innerHTML = `
                     <div class="flex items-center gap-2 min-w-0 pr-1">
@@ -2208,8 +2227,8 @@
                 container.appendChild(label);
             });
 
-            const maskToggle = document.getElementById('modal-display-mask-toggle');
-            if (maskToggle) maskToggle.checked = modalPickerDisplayMask;
+            const topToggle = document.getElementById('modal-display-mask-toggle');
+            if (topToggle) topToggle.checked = modalPickerDisplayMask;
         }
 
         function onModalPickerCheckboxChange(idx, checked) {
@@ -3880,25 +3899,59 @@
 
         function renderStudentInputs() {
             const container = document.getElementById('student-list');
+            if (!container) return;
             container.innerHTML = '';
             appState.students.forEach((student, index) => {
                 const div = document.createElement('div');
                 div.className = "flex gap-2 items-center bg-gray-50/80 dark:bg-gray-900/80 p-2 rounded-lg border border-gray-200 dark:border-gray-700/80 shadow-2xs";
                 
-                const maskedPreview = (student.name && appState.anonymizeStudents) ? maskStudentName(student.name) : student.name;
-                const titleHint = appState.anonymizeStudents 
-                    ? `真實姓名：${student.name || '空白'}（A4 報表將遮罩為：${maskedPreview}，開關位於上方）` 
+                const isMasked = !!appState.anonymizeStudents;
+                const displayVal = (isMasked && student.name) ? maskStudentName(student.name) : (student.name || '');
+                const titleHint = isMasked 
+                    ? `點擊可編輯真實姓名（目前去識別化顯示：${displayVal}）` 
                     : `學生姓名：${student.name || '空白'}`;
 
                 div.innerHTML = `
                     <span class="text-xs font-bold text-gray-400 dark:text-gray-500 w-5 text-center">${index + 1}</span>
-                    <input type="text" value="${student.name}" oninput="updateStudent(${index}, 'name', this.value)" class="flex-1 min-w-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" placeholder="姓名" title="${titleHint}">
-                    <input type="text" value="${student.score1}" oninput="updateStudent(${index}, 'score1', this.value)" class="w-14 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded text-center focus:ring-1 focus:ring-blue-500 outline-none" placeholder="前測">
-                    <input type="text" value="${student.score2}" oninput="updateStudent(${index}, 'score2', this.value)" class="w-14 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded text-center focus:ring-1 focus:ring-blue-500 outline-none" placeholder="後測">
+                    <input type="text" 
+                        value="${displayVal}" 
+                        onfocus="onStudentNameFocus(${index}, this)"
+                        oninput="onStudentNameInput(${index}, this)"
+                        onblur="onStudentNameBlur(${index}, this)"
+                        class="flex-1 min-w-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none transition" 
+                        placeholder="姓名" 
+                        title="${titleHint}">
+                    <input type="text" value="${student.score1 || ''}" oninput="updateStudent(${index}, 'score1', this.value)" class="w-14 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded text-center focus:ring-1 focus:ring-blue-500 outline-none" placeholder="前測">
+                    <input type="text" value="${student.score2 || ''}" oninput="updateStudent(${index}, 'score2', this.value)" class="w-14 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded text-center focus:ring-1 focus:ring-blue-500 outline-none" placeholder="後測">
                     <button onclick="confirmRemoveStudent(${index})" class="text-gray-400 hover:text-red-500 dark:hover:text-red-400 px-1.5 transition" title="刪除學生"><i class="fas fa-times"></i></button>
                 `;
                 container.appendChild(div);
             });
+        }
+
+        function onStudentNameFocus(index, inputEl) {
+            if (appState.students[index]) {
+                inputEl.value = appState.students[index].name || '';
+            }
+        }
+
+        function onStudentNameInput(index, inputEl) {
+            if (appState.students[index]) {
+                appState.students[index].name = inputEl.value;
+                saveAndRender();
+            }
+        }
+
+        function onStudentNameBlur(index, inputEl) {
+            if (appState.students[index]) {
+                appState.students[index].name = inputEl.value.trim();
+                saveAndRender();
+                if (appState.anonymizeStudents && appState.students[index].name) {
+                    inputEl.value = maskStudentName(appState.students[index].name);
+                } else {
+                    inputEl.value = appState.students[index].name;
+                }
+            }
         }
 
         function renderLogInputs() {
