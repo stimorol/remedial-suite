@@ -2609,7 +2609,7 @@
                 appState.logs[index][key] = value;
                 saveAndRender();
                 if (key === 'content') {
-                    updateLogGoalSelect(index);
+                    refreshAllLogGoalSelects();
                 } else if (key === 'unit') {
                     const sel = document.getElementById(`log-unit-select-${index}`);
                     if (sel) {
@@ -2647,6 +2647,26 @@
             const availableCount = objectiveTexts.filter(t => !currentContent.includes(t.trim())).length;
             const allAdded = availableCount === 0;
 
+            // 計算其他堂課對應教學目標的使用狀況 (排除當前堂數)
+            const otherLogsUsage = new Map();
+            if (appState.logs && Array.isArray(appState.logs)) {
+                appState.logs.forEach((l, lIdx) => {
+                    if (lIdx !== index && l && l.content) {
+                        objectiveTexts.forEach(t => {
+                            const cleanT = t.trim();
+                            if (cleanT && l.content.includes(cleanT)) {
+                                if (!otherLogsUsage.has(cleanT)) {
+                                    otherLogsUsage.set(cleanT, []);
+                                }
+                                if (!otherLogsUsage.get(cleanT).includes(lIdx + 1)) {
+                                    otherLogsUsage.get(cleanT).push(lIdx + 1);
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
             const unit = (log.unit || '').trim();
             let recommended = [];
             let others = [];
@@ -2674,14 +2694,31 @@
             const renderOption = (text, isRec) => {
                 const cleanText = text.trim();
                 const isAdded = currentContent.includes(cleanText);
-                const prefix = isRec ? '⭐ [推薦] ' : '';
+                const otherSessions = otherLogsUsage.get(cleanText) || [];
+                const isOther = otherSessions.length > 0;
+                const recPrefix = isRec ? '⭐ [推薦] ' : '';
+
                 if (isAdded) {
-                    return `<option value="${text}" data-raw="${text}" data-rec="${isRec}" disabled class="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-1">[已帶入] ${prefix}${text}</option>`;
+                    return `<option value="${text}" data-raw="${text}" data-rec="${isRec}" disabled class="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-1">[本堂已帶入] ${recPrefix}${text}</option>`;
+                } else if (isOther) {
+                    let otherTag = '';
+                    if (otherSessions.length === 1) {
+                        otherTag = `[他堂已帶入(第${otherSessions[0]}堂)] `;
+                    } else if (otherSessions.length <= 3) {
+                        otherTag = `[他堂已帶入(第${otherSessions.join(',')}堂)] `;
+                    } else {
+                        otherTag = `[他堂已帶入(共${otherSessions.length}堂)] `;
+                    }
+
+                    const cls = isRec 
+                        ? "bg-amber-50/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-medium py-1"
+                        : "bg-blue-50/60 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 font-medium py-1";
+                    return `<option value="${text}" data-raw="${text}" data-rec="${isRec}" class="${cls}">${recPrefix}${otherTag}${text}</option>`;
                 } else {
                     const cls = isRec 
                         ? "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-medium py-1"
                         : "bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 py-1";
-                    return `<option value="${text}" data-raw="${text}" data-rec="${isRec}" class="${cls}">${prefix}${text}</option>`;
+                    return `<option value="${text}" data-raw="${text}" data-rec="${isRec}" class="${cls}">${recPrefix}${text}</option>`;
                 }
             };
 
@@ -2725,26 +2762,63 @@
             if (!sel) return;
             const currentContent = appState.logs[index]?.content || "";
             let availableCount = 0;
+
+            const otherLogsUsage = new Map();
+            if (appState.logs && Array.isArray(appState.logs)) {
+                appState.logs.forEach((l, lIdx) => {
+                    if (lIdx !== index && l && l.content) {
+                        for (let i = 1; i < sel.options.length; i++) {
+                            const rawVal = (sel.options[i].getAttribute('data-raw') || sel.options[i].value || "").trim();
+                            if (rawVal && l.content.includes(rawVal)) {
+                                if (!otherLogsUsage.has(rawVal)) otherLogsUsage.set(rawVal, []);
+                                if (!otherLogsUsage.get(rawVal).includes(lIdx + 1)) {
+                                    otherLogsUsage.get(rawVal).push(lIdx + 1);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
             for (let i = 1; i < sel.options.length; i++) {
                 const opt = sel.options[i];
                 const rawVal = (opt.getAttribute('data-raw') || opt.value || "").trim();
                 if (!rawVal) continue;
                 const isAdded = currentContent.includes(rawVal);
                 const isRec = opt.getAttribute('data-rec') === 'true';
-                const prefix = isRec ? '⭐ [推薦] ' : '';
+                const recPrefix = isRec ? '⭐ [推薦] ' : '';
+                const otherSessions = otherLogsUsage.get(rawVal) || [];
+                const isOther = otherSessions.length > 0;
+
                 if (isAdded) {
                     opt.disabled = true;
-                    opt.textContent = `[已帶入] ${prefix}${rawVal}`;
+                    opt.textContent = `[本堂已帶入] ${recPrefix}${rawVal}`;
                     opt.className = "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-1";
+                } else if (isOther) {
+                    opt.disabled = false;
+                    let otherTag = '';
+                    if (otherSessions.length === 1) {
+                        otherTag = `[他堂已帶入(第${otherSessions[0]}堂)] `;
+                    } else if (otherSessions.length <= 3) {
+                        otherTag = `[他堂已帶入(第${otherSessions.join(',')}堂)] `;
+                    } else {
+                        otherTag = `[他堂已帶入(共${otherSessions.length}堂)] `;
+                    }
+                    opt.textContent = `${recPrefix}${otherTag}${rawVal}`;
+                    opt.className = isRec
+                        ? "bg-amber-50/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-medium py-1"
+                        : "bg-blue-50/60 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 font-medium py-1";
+                    availableCount++;
                 } else {
                     opt.disabled = false;
-                    opt.textContent = `${prefix}${rawVal}`;
+                    opt.textContent = `${recPrefix}${rawVal}`;
                     opt.className = isRec
                         ? "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-medium py-1"
                         : "bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 py-1";
                     availableCount++;
                 }
             }
+
             const badge = document.getElementById(`log-goal-status-${index}`);
             const recCount = badge ? parseInt(badge.getAttribute('data-rec-count') || '0') : 0;
             if (sel.options.length > 0) {
@@ -2760,6 +2834,13 @@
                 } else {
                     badge.innerHTML = '可多次選取追加不同目標';
                 }
+            }
+        }
+
+        function refreshAllLogGoalSelects() {
+            if (!appState.logs) return;
+            for (let i = 0; i < appState.logs.length; i++) {
+                updateLogGoalSelect(i);
             }
         }
 
