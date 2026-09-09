@@ -663,13 +663,25 @@
                                     <span id="classTimePreview" class="font-semibold text-blue-700 dark:text-blue-300"></span>
                                 </div>
                             </div>
-                            <div class="col-span-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-                                <label class="block text-gray-600 dark:text-gray-300 font-medium mb-1">總節數與課堂排程</label>
+                            <div class="col-span-2 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1.5">
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-gray-600 dark:text-gray-300 font-medium">總節數與課堂排程</label>
+                                    <span id="sessionsAutoBadge" class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                                        <i class="fas fa-calculator"></i> 日期自動推算連動
+                                    </span>
+                                </div>
                                 <div class="flex items-center gap-2">
-                                    <input type="number" id="totalSessions" min="1" oninput="updateState('schoolInfo', 'totalSessions', this.value)" class="w-20 p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none font-bold text-center">
+                                    <input type="number" id="totalSessions" min="1" oninput="onTotalSessionsInput(this.value)" class="w-20 p-1.5 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/50 outline-none font-bold text-center">
                                     <span class="text-gray-500 dark:text-gray-400 text-xs shrink-0">節</span>
                                     <button type="button" onclick="autoGenerateScheduleLogs()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 px-2.5 rounded-lg font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-xs">
                                         <i class="fas fa-magic"></i> 依時段自動排定堂數與日期
+                                    </button>
+                                </div>
+                                <!-- 節數推算狀態與微調輔助列 -->
+                                <div id="totalSessionsHintRow" class="flex items-center justify-between text-[11px] bg-gray-50/80 dark:bg-gray-900/60 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700/80">
+                                    <span id="totalSessionsHint" class="flex items-center gap-1 truncate text-gray-600 dark:text-gray-400"></span>
+                                    <button type="button" id="recalcSessionsBtn" onclick="applyCalculatedSessions()" class="hidden text-blue-600 dark:text-blue-400 hover:underline shrink-0 font-medium flex items-center gap-1 ml-2">
+                                        <i class="fas fa-rotate"></i> 套用推算
                                     </button>
                                 </div>
                             </div>
@@ -2339,7 +2351,104 @@
             renderLogInputs();
         }
 
-        function updateDateRange() {
+        // ==========================================
+        // 開訖日期與上課星期之總節數自動推算演算法
+        // ==========================================
+        function calculateTotalSessionsFromDates(startDateStr, endDateStr, weekdays) {
+            if (!startDateStr || !endDateStr || !weekdays || weekdays.length === 0) return 0;
+            const startParts = startDateStr.split('-').map(Number);
+            const endParts = endDateStr.split('-').map(Number);
+            let curr = new Date(startParts[0], startParts[1] - 1, startParts[2], 12, 0, 0);
+            const end = new Date(endParts[0], endParts[1] - 1, endParts[2], 12, 0, 0);
+            if (curr > end) return 0;
+            let count = 0;
+            let safety = 0;
+            while (curr <= end && safety < 1000) {
+                safety++;
+                if (weekdays.includes(curr.getDay())) {
+                    count++;
+                }
+                curr.setDate(curr.getDate() + 1);
+            }
+            return count;
+        }
+
+        function autoCalculateTotalSessions(updateValue = true) {
+            const s = appState.schoolInfo ? appState.schoolInfo.startDate : '';
+            const e = appState.schoolInfo ? appState.schoolInfo.endDate : '';
+            const w = getSelectedWeekdays();
+            const calculatedCount = calculateTotalSessionsFromDates(s, e, w);
+
+            if (!appState.schoolInfo) appState.schoolInfo = {};
+            appState.schoolInfo.calculatedSessions = calculatedCount;
+
+            if (updateValue && calculatedCount > 0) {
+                appState.schoolInfo.totalSessions = calculatedCount.toString();
+                const input = document.getElementById('totalSessions');
+                if (input) input.value = calculatedCount;
+            }
+
+            updateTotalSessionsUI();
+        }
+
+        function onTotalSessionsInput(val) {
+            if (!appState.schoolInfo) appState.schoolInfo = {};
+            appState.schoolInfo.totalSessions = val;
+            updateTotalSessionsUI();
+            saveAndRender();
+        }
+
+        function applyCalculatedSessions() {
+            const calculated = appState.schoolInfo ? appState.schoolInfo.calculatedSessions : 0;
+            if (calculated && calculated > 0) {
+                appState.schoolInfo.totalSessions = calculated.toString();
+                const input = document.getElementById('totalSessions');
+                if (input) input.value = calculated;
+                updateTotalSessionsUI();
+                saveAndRender();
+            }
+        }
+
+        function updateTotalSessionsUI() {
+            const hintEl = document.getElementById('totalSessionsHint');
+            const recalcBtn = document.getElementById('recalcSessionsBtn');
+            if (!hintEl) return;
+
+            const s = appState.schoolInfo ? appState.schoolInfo.startDate : '';
+            const e = appState.schoolInfo ? appState.schoolInfo.endDate : '';
+            const w = getSelectedWeekdays();
+            const calculated = (appState.schoolInfo && typeof appState.schoolInfo.calculatedSessions === 'number')
+                ? appState.schoolInfo.calculatedSessions
+                : calculateTotalSessionsFromDates(s, e, w);
+
+            if (appState.schoolInfo) {
+                appState.schoolInfo.calculatedSessions = calculated;
+            }
+
+            const currentVal = parseInt((appState.schoolInfo && appState.schoolInfo.totalSessions) ? appState.schoolInfo.totalSessions : '0');
+
+            if (!s || !e) {
+                hintEl.innerHTML = '<i class="fas fa-info-circle text-gray-400 mr-1"></i><span>請設定開課與結課日期</span>';
+                if (recalcBtn) recalcBtn.classList.add('hidden');
+            } else if (!w || w.length === 0) {
+                hintEl.innerHTML = '<i class="fas fa-info-circle text-amber-500 mr-1"></i><span>請勾選上課星期以推算節數</span>';
+                if (recalcBtn) recalcBtn.classList.add('hidden');
+            } else if (calculated === 0) {
+                hintEl.innerHTML = '<i class="fas fa-triangle-exclamation text-amber-500 mr-1"></i><span>結課日期需晚於或等於開課日期</span>';
+                if (recalcBtn) recalcBtn.classList.add('hidden');
+            } else if (currentVal === calculated) {
+                hintEl.innerHTML = `<i class="fas fa-check-circle text-emerald-500 mr-1"></i><span class="text-emerald-700 dark:text-emerald-300 font-medium">已對照起訖日期與星期自動推算（共 ${calculated} 節）</span>`;
+                if (recalcBtn) recalcBtn.classList.add('hidden');
+            } else {
+                hintEl.innerHTML = `<i class="fas fa-pen-to-square text-amber-500 mr-1"></i><span class="text-amber-700 dark:text-amber-300 font-medium">目前手動指定 ${currentVal} 節（日期推算為 ${calculated} 節）</span>`;
+                if (recalcBtn) {
+                    recalcBtn.innerHTML = `<i class="fas fa-rotate mr-0.5"></i> 套用推算 (${calculated}節)`;
+                    recalcBtn.classList.remove('hidden');
+                }
+            }
+        }
+
+        function updateDateRange(autoCalcSessions = true) {
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
             appState.schoolInfo.startDate = start;
@@ -2358,6 +2467,11 @@
             const rocStart = start ? formatDateToROC(start) : '○年○月○日';
             const rocEnd = end ? formatDateToROC(end) : '○年○月○日';
             appState.schoolInfo.dateRange = `${rocStart}至${rocEnd}`;
+
+            if (autoCalcSessions) {
+                autoCalculateTotalSessions(true);
+            }
+
             saveAndRender();
         }
 
@@ -2784,6 +2898,7 @@
             if (preview) preview.textContent = fullStr || '尚未設定完整時段';
 
             renderWeekdayChips();
+            autoCalculateTotalSessions(true);
             saveAndRender();
         }
 
@@ -2921,7 +3036,8 @@
                 appState.schoolInfo.endDate = dates[dates.length - 1];
                 const endInput = document.getElementById('endDate');
                 if (endInput) endInput.value = appState.schoolInfo.endDate;
-                updateDateRange();
+                updateDateRange(false);
+                updateTotalSessionsUI();
 
                 renderLogInputs();
                 saveAndRender();
@@ -3125,6 +3241,9 @@
             // 更新姓名去識別化遮罩開關
             const anonToggle = document.getElementById('toggleAnonymize');
             if (anonToggle) anonToggle.checked = !!appState.anonymizeStudents;
+
+            // 更新總節數推算狀態提示
+            updateTotalSessionsUI();
         }
 
         function renderStudentInputs() {
