@@ -3059,6 +3059,7 @@
         function addStudent() {
             appState.students.push({ name: "", score1: "", score2: "" });
             renderStudentInputs();
+            renderLogInputs();
             saveAndRender();
         }
 
@@ -3066,6 +3067,7 @@
             showConfirm("確定刪除此學生資料？", () => {
                 appState.students.splice(index, 1);
                 renderStudentInputs();
+                renderLogInputs();
                 saveAndRender();
             });
         }
@@ -3088,6 +3090,7 @@
                     : "text-[10px] px-1.5 py-0.2 rounded bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400 font-semibold";
             }
             renderStudentInputs();
+            renderLogInputs();
             saveAndRender();
         }
 
@@ -3604,6 +3607,8 @@
                             unit: "",
                             content: "",
                             eval: "良好",
+                            evalMode: "all",
+                            evalStudents: { good: [], ok: [], bad: [] },
                             code: "",
                             material: "",
                             assessment_text: ""
@@ -3649,7 +3654,17 @@
                 const d = new Date();
                 nextDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             }
-            appState.logs.push({ date: nextDate, unit: "", content: "", eval: "良好", code: "", material: "", assessment_text: "" });
+            appState.logs.push({
+                date: nextDate,
+                unit: "",
+                content: "",
+                eval: "良好",
+                evalMode: "all",
+                evalStudents: { good: [], ok: [], bad: [] },
+                code: "",
+                material: "",
+                assessment_text: ""
+            });
 
             appState.schoolInfo.totalSessions = appState.logs.length.toString();
             const totalInput = document.getElementById('totalSessions');
@@ -3951,7 +3966,219 @@
                 } else {
                     inputEl.value = appState.students[index].name;
                 }
+                renderLogInputs();
             }
+        }
+
+        function getLogEvalStudents(log) {
+            const validStudents = (appState.students || [])
+                .map((s, idx) => ({ name: s.name, num: idx + 1 }))
+                .filter(s => (s.name || '').trim().length > 0);
+            const allNums = validStudents.map(s => s.num);
+
+            let es = log.evalStudents;
+            if (!es || typeof es !== 'object') {
+                es = { good: [...allNums], ok: [], bad: [] };
+            } else {
+                es = {
+                    good: Array.isArray(es.good) ? [...es.good] : [],
+                    ok: Array.isArray(es.ok) ? [...es.ok] : [],
+                    bad: Array.isArray(es.bad) ? [...es.bad] : []
+                };
+            }
+
+            allNums.forEach(n => {
+                if (!es.good.includes(n) && !es.ok.includes(n) && !es.bad.includes(n)) {
+                    es.good.push(n);
+                }
+            });
+
+            es.good = es.good.filter(n => allNums.includes(n)).sort((a, b) => a - b);
+            es.ok = es.ok.filter(n => allNums.includes(n)).sort((a, b) => a - b);
+            es.bad = es.bad.filter(n => allNums.includes(n)).sort((a, b) => a - b);
+
+            log.evalStudents = es;
+            return es;
+        }
+
+        function getLogEvalDisplay(log) {
+            if (log.evalMode === 'individual') {
+                const es = getLogEvalStudents(log);
+                return {
+                    mode: 'individual',
+                    good: es.good.length > 0 ? es.good.join(', ') : '',
+                    ok: es.ok.length > 0 ? es.ok.join(', ') : '',
+                    bad: es.bad.length > 0 ? es.bad.join(', ') : ''
+                };
+            }
+            const val = log.eval || '良好';
+            return {
+                mode: 'all',
+                good: val === '良好' ? '✓' : '',
+                ok: val === '尚可' ? '✓' : '',
+                bad: val === '待改進' ? '✓' : ''
+            };
+        }
+
+        function setLogEvalMode(logIndex, mode) {
+            if (!appState.logs[logIndex]) return;
+            appState.logs[logIndex].evalMode = mode;
+            if (mode === 'individual') {
+                getLogEvalStudents(appState.logs[logIndex]);
+            }
+            renderLogInputs();
+            saveAndRender();
+        }
+
+        function setStudentLogEval(logIndex, studentNum, status) {
+            if (!appState.logs[logIndex]) return;
+            const es = getLogEvalStudents(appState.logs[logIndex]);
+            
+            es.good = es.good.filter(n => n !== studentNum);
+            es.ok = es.ok.filter(n => n !== studentNum);
+            es.bad = es.bad.filter(n => n !== studentNum);
+
+            if (status === 'good') es.good.push(studentNum);
+            else if (status === 'ok') es.ok.push(studentNum);
+            else if (status === 'bad') es.bad.push(studentNum);
+
+            es.good.sort((a, b) => a - b);
+            es.ok.sort((a, b) => a - b);
+            es.bad.sort((a, b) => a - b);
+
+            appState.logs[logIndex].evalStudents = es;
+            renderLogInputs();
+            saveAndRender();
+        }
+
+        function setAllStudentsLogEval(logIndex, status) {
+            if (!appState.logs[logIndex]) return;
+            const validStudents = (appState.students || [])
+                .map((s, idx) => ({ name: s.name, num: idx + 1 }))
+                .filter(s => (s.name || '').trim().length > 0);
+            const allNums = validStudents.map(s => s.num);
+
+            appState.logs[logIndex].evalStudents = {
+                good: status === 'good' ? [...allNums] : [],
+                ok: status === 'ok' ? [...allNums] : [],
+                bad: status === 'bad' ? [...allNums] : []
+            };
+            renderLogInputs();
+            saveAndRender();
+        }
+
+        function buildLogEvalHTML(index, log) {
+            const isIndividual = log.evalMode === 'individual';
+            const evalVal = log.eval || '良好';
+            
+            const isMasked = !!appState.anonymizeStudents;
+            const validStudents = (appState.students || [])
+                .map((s, idx) => {
+                    const rawName = (s.name || '').trim();
+                    const displayName = (isMasked && rawName) ? maskStudentName(rawName) : rawName;
+                    return { num: idx + 1, name: displayName, rawName: rawName };
+                })
+                .filter(s => s.rawName.length > 0);
+
+            let contentHTML = '';
+
+            if (!isIndividual) {
+                contentHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">全班評量表現：</span>
+                        <select onchange="updateLog(${index}, 'eval', this.value)" class="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2.5 py-1.5 rounded-lg focus:ring-1 focus:ring-blue-500 outline-none">
+                            <option value="良好" ${evalVal === '良好' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">良好 (在「良好」欄打勾 ✓)</option>
+                            <option value="尚可" ${evalVal === '尚可' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">尚可 (在「尚可」欄打勾 ✓)</option>
+                            <option value="待改進" ${evalVal === '待改進' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">待改進 (在「待改進」欄打勾 ✓)</option>
+                        </select>
+                    </div>
+                `;
+            } else {
+                if (validStudents.length === 0) {
+                    contentHTML = `
+                        <div class="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2 rounded border border-amber-200 dark:border-amber-800/60 flex items-center gap-1.5">
+                            <i class="fas fa-circle-exclamation"></i>
+                            <span>目前名冊尚無學生姓名，請先至上方「學生名單與評量成績」建立名單。</span>
+                        </div>
+                    `;
+                } else {
+                    const es = getLogEvalStudents(log);
+                    const goodStr = es.good.length > 0 ? es.good.join(', ') : '無';
+                    const okStr = es.ok.length > 0 ? es.ok.join(', ') : '無';
+                    const badStr = es.bad.length > 0 ? es.bad.join(', ') : '無';
+
+                    const studentChipsHTML = validStudents.map(st => {
+                        let curStatus = 'good';
+                        if (es.ok.includes(st.num)) curStatus = 'ok';
+                        else if (es.bad.includes(st.num)) curStatus = 'bad';
+
+                        const goodClass = curStatus === 'good' 
+                            ? 'bg-emerald-600 text-white font-bold shadow-2xs' 
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700';
+                        const okClass = curStatus === 'ok' 
+                            ? 'bg-amber-500 text-white font-bold shadow-2xs' 
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700';
+                        const badClass = curStatus === 'bad' 
+                            ? 'bg-rose-500 text-white font-bold shadow-2xs' 
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700';
+
+                        return `
+                            <div class="flex items-center justify-between bg-white dark:bg-gray-800/90 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700/80 shadow-2xs">
+                                <div class="flex items-center gap-1.5 min-w-0 pr-1">
+                                    <span class="w-4 h-4 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-[10px] flex items-center justify-center font-bold shrink-0">${st.num}</span>
+                                    <span class="text-xs font-medium text-gray-800 dark:text-gray-200 truncate" title="${st.name}">${st.name}</span>
+                                </div>
+                                <div class="inline-flex rounded text-[10px] p-0.5 bg-gray-100 dark:bg-gray-900 gap-0.5 shrink-0">
+                                    <button type="button" onclick="setStudentLogEval(${index}, ${st.num}, 'good')" class="px-1.5 py-0.5 rounded transition ${goodClass}" title="設為良好">良好</button>
+                                    <button type="button" onclick="setStudentLogEval(${index}, ${st.num}, 'ok')" class="px-1.5 py-0.5 rounded transition ${okClass}" title="設為尚可">尚可</button>
+                                    <button type="button" onclick="setStudentLogEval(${index}, ${st.num}, 'bad')" class="px-1.5 py-0.5 rounded transition ${badClass}" title="設為待改進">待改進</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    contentHTML = `
+                        <div class="space-y-2">
+                            <div class="flex flex-wrap items-center justify-between gap-1.5 text-[11px] pb-1 border-b border-gray-200/80 dark:border-gray-700/60">
+                                <div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                                    <span>報表預覽：</span>
+                                    <span class="text-emerald-700 dark:text-emerald-400 font-medium">良好【${goodStr}】</span>
+                                    <span class="text-amber-700 dark:text-amber-400 font-medium">尚可【${okStr}】</span>
+                                    <span class="text-rose-700 dark:text-rose-400 font-medium">待改進【${badStr}】</span>
+                                </div>
+                                <button type="button" onclick="setAllStudentsLogEval(${index}, 'good')" class="text-blue-600 dark:text-blue-400 hover:underline font-medium flex items-center gap-1 text-[10px]">
+                                    <i class="fas fa-check-double"></i> 一鍵全班設為良好
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                ${studentChipsHTML}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            return `
+                <div class="bg-gray-100/70 dark:bg-gray-800/60 p-2.5 rounded-xl border border-gray-200 dark:border-gray-700/80 space-y-2 shadow-2xs">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                            <i class="fas fa-clipboard-check text-blue-600 dark:text-blue-400"></i>
+                            <span>學生學習與評量</span>
+                        </label>
+                        <div class="inline-flex rounded-lg shadow-2xs bg-gray-200/90 dark:bg-gray-700/90 p-0.5 text-[10px] font-medium">
+                            <button type="button" onclick="setLogEvalMode(${index}, 'all')" 
+                                class="px-2 py-0.5 rounded-md transition ${!isIndividual ? 'bg-white dark:bg-gray-900 font-bold text-blue-600 dark:text-blue-400 shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}">
+                                <i class="fas fa-check mr-1"></i>全班打勾
+                            </button>
+                            <button type="button" onclick="setLogEvalMode(${index}, 'individual')" 
+                                class="px-2 py-0.5 rounded-md transition ${isIndividual ? 'bg-white dark:bg-gray-900 font-bold text-emerald-600 dark:text-emerald-400 shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}">
+                                <i class="fas fa-users-viewfinder mr-1"></i>學生編號
+                            </button>
+                        </div>
+                    </div>
+                    ${contentHTML}
+                </div>
+            `;
         }
 
         function renderLogInputs() {
@@ -3971,6 +4198,7 @@
                 div.className = "bg-gray-50/80 dark:bg-gray-900/80 p-3 rounded-xl border border-gray-200 dark:border-gray-700/80 shadow-2xs relative group space-y-2.5";
 
                 let quickSelectHTML = buildGoalSelectHTML(index, log, objectiveTexts);
+                let evalSectionHTML = buildLogEvalHTML(index, log);
 
                 let inputsHTML = '';
                 if (isChinese) {
@@ -3988,14 +4216,8 @@
                             ${codeSelectHTML}
                             <input type="text" value="${log.material || ''}" oninput="updateLog(${index}, 'material', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" placeholder="教材選用">
                         </div>
-                        <div class="grid grid-cols-6 gap-2">
-                            <textarea oninput="updateLog(${index}, 'content', this.value)" class="col-span-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="教學/學習策略">${log.content}</textarea>
-                            <select onchange="updateLog(${index}, 'eval', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
-                                <option value="良好" ${log.eval === '良好' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">良好</option>
-                                <option value="尚可" ${log.eval === '尚可' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">尚可</option>
-                                <option value="待改進" ${log.eval === '待改進' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">待改進</option>
-                            </select>
-                        </div>
+                        <textarea oninput="updateLog(${index}, 'content', this.value)" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="教學/學習策略">${log.content}</textarea>
+                        ${evalSectionHTML}
                     `;
                 } else if (isEnglish) {
                     inputsHTML = `
@@ -4004,27 +4226,17 @@
                             <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
                             <input type="text" value="${log.material || ''}" oninput="updateLog(${index}, 'material', this.value)" class="col-span-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none" placeholder="教材選用">
                         </div>
-                        <div class="grid grid-cols-6 gap-2">
-                            <textarea oninput="updateLog(${index}, 'content', this.value)" class="col-span-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="教學內容">${log.content}</textarea>
-                            <select onchange="updateLog(${index}, 'eval', this.value)" class="col-span-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
-                                <option value="良好" ${log.eval === '良好' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">良好</option>
-                                <option value="尚可" ${log.eval === '尚可' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">尚可</option>
-                                <option value="待改進" ${log.eval === '待改進' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">待改進</option>
-                            </select>
-                        </div>
+                        <textarea oninput="updateLog(${index}, 'content', this.value)" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="教學內容">${log.content}</textarea>
+                        ${evalSectionHTML}
                     `;
                 } else if (isVacation) {
                     inputsHTML = `
                         ${quickSelectHTML}
-                        <div class="grid grid-cols-6 gap-2">
-                            <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="col-span-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
-                            <select onchange="updateLog(${index}, 'eval', this.value)" class="col-span-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
-                                <option value="良好" ${log.eval === '良好' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">良好</option>
-                                <option value="尚可" ${log.eval === '尚可' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">尚可</option>
-                                <option value="待改進" ${log.eval === '待改進' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">待改進</option>
-                            </select>
+                        <div>
+                            <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
                         </div>
                         <textarea oninput="updateLog(${index}, 'content', this.value)" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="教學內容">${log.content}</textarea>
+                        ${evalSectionHTML}
                     `;
                 } else {
                     const currentUnits = getUnitsForCurrentConfig();
@@ -4056,20 +4268,14 @@
                         </div>
                     `;
 
-                    let dateClass = isOriginalClass ? 'hidden' : 'col-span-3';
-                    let evalClass = isOriginalClass ? 'col-span-6' : 'col-span-3';
                     inputsHTML = `
                         ${unitQuickSelectHTML}
                         ${quickSelectHTML}
-                        <div class="grid grid-cols-6 gap-2">
-                            <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="${dateClass} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
-                            <select onchange="updateLog(${index}, 'eval', this.value)" class="${evalClass} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
-                                <option value="良好" ${log.eval === '良好' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">良好</option>
-                                <option value="尚可" ${log.eval === '尚可' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">尚可</option>
-                                <option value="待改進" ${log.eval === '待改進' ? 'selected' : ''} class="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">待改進</option>
-                            </select>
+                        <div class="${isOriginalClass ? 'hidden' : ''}">
+                            <input type="date" value="${log.date}" oninput="updateLog(${index}, 'date', this.value)" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs px-2 py-1.5 rounded focus:ring-1 focus:ring-blue-500 outline-none">
                         </div>
                         <textarea oninput="updateLog(${index}, 'content', this.value)" class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-xs p-2 rounded focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed resize-y" rows="3" placeholder="學習扶助教學內容">${log.content}</textarea>
+                        ${evalSectionHTML}
                     `;
                 }
 
@@ -4257,9 +4463,14 @@
 
             logs.forEach(log => {
                 const tr = document.createElement('tr');
-                const checkGood = log.eval === '良好' ? '✓' : '';
-                const checkOk = log.eval === '尚可' ? '✓' : '';
-                const checkBad = log.eval === '待改進' ? '✓' : '';
+                const evalDisp = getLogEvalDisplay(log);
+                const isCheckGood = evalDisp.good === '✓';
+                const isCheckOk = evalDisp.ok === '✓';
+                const isCheckBad = evalDisp.bad === '✓';
+                const styleGood = isCheckGood ? 'font-size: 1.2em;' : 'font-size: 0.85em; font-weight: bold;';
+                const styleOk = isCheckOk ? 'font-size: 1.2em;' : 'font-size: 0.85em; font-weight: bold;';
+                const styleBad = isCheckBad ? 'font-size: 1.2em;' : 'font-size: 0.85em; font-weight: bold;';
+
                 const displayDate = formatDateForTable(log.date);
 
                 const formattedContent = formatTableCellText(log.content);
@@ -4267,15 +4478,15 @@
                 const formattedUnit = formatTableCellText(log.unit);
 
                 if (format === 'chinese') {
-                    tr.innerHTML = `<td class="text-center">${log.code || ''}</td><td class="text-center">${displayDate}</td><td class="text-left-align">${formattedContent}</td><td class="text-left-align">${formattedMaterial}</td><td class="text-center" style="font-size: 1.2em;">${checkGood}</td><td class="text-center" style="font-size: 1.2em;">${checkOk}</td><td class="text-center" style="font-size: 1.2em;">${checkBad}</td><td></td>`;
+                    tr.innerHTML = `<td class="text-center">${log.code || ''}</td><td class="text-center">${displayDate}</td><td class="text-left-align">${formattedContent}</td><td class="text-left-align">${formattedMaterial}</td><td class="text-center" style="${styleGood}">${evalDisp.good}</td><td class="text-center" style="${styleOk}">${evalDisp.ok}</td><td class="text-center" style="${styleBad}">${evalDisp.bad}</td><td></td>`;
                 } else if (format === 'english') {
-                    tr.innerHTML = `<td class="text-center">${displayDate}</td><td class="text-left-align">${formattedContent}</td><td class="text-left-align">${formattedMaterial}</td><td class="text-center" style="font-size: 1.2em;">${checkGood}</td><td class="text-center" style="font-size: 1.2em;">${checkOk}</td><td class="text-center" style="font-size: 1.2em;">${checkBad}</td><td></td>`;
+                    tr.innerHTML = `<td class="text-center">${displayDate}</td><td class="text-left-align">${formattedContent}</td><td class="text-left-align">${formattedMaterial}</td><td class="text-center" style="${styleGood}">${evalDisp.good}</td><td class="text-center" style="${styleOk}">${evalDisp.ok}</td><td class="text-center" style="${styleBad}">${evalDisp.bad}</td><td></td>`;
                 } else if (format === 'math_semester_original') {
-                    tr.innerHTML = `<td class="text-left-align">${formattedUnit}</td><td class="text-left-align">${formattedContent}</td><td class="text-center" style="font-size: 1.2em;">${checkGood}</td><td class="text-center" style="font-size: 1.2em;">${checkOk}</td><td class="text-center" style="font-size: 1.2em;">${checkBad}</td><td></td>`;
+                    tr.innerHTML = `<td class="text-left-align">${formattedUnit}</td><td class="text-left-align">${formattedContent}</td><td class="text-center" style="${styleGood}">${evalDisp.good}</td><td class="text-center" style="${styleOk}">${evalDisp.ok}</td><td class="text-center" style="${styleBad}">${evalDisp.bad}</td><td></td>`;
                 } else if (format === 'math_semester_remedial') {
-                    tr.innerHTML = `<td class="text-center">${displayDate}</td><td class="text-left-align">${formattedUnit}</td><td class="text-left-align">${formattedContent}</td><td class="text-center" style="font-size: 1.2em;">${checkGood}</td><td class="text-center" style="font-size: 1.2em;">${checkOk}</td><td class="text-center" style="font-size: 1.2em;">${checkBad}</td><td></td>`;
+                    tr.innerHTML = `<td class="text-center">${displayDate}</td><td class="text-left-align">${formattedUnit}</td><td class="text-left-align">${formattedContent}</td><td class="text-center" style="${styleGood}">${evalDisp.good}</td><td class="text-center" style="${styleOk}">${evalDisp.ok}</td><td class="text-center" style="${styleBad}">${evalDisp.bad}</td><td></td>`;
                 } else {
-                    tr.innerHTML = `<td class="text-center">${displayDate}</td><td class="text-left-align">${formattedContent}</td><td class="text-center" style="font-size: 1.2em;">${checkGood}</td><td class="text-center" style="font-size: 1.2em;">${checkOk}</td><td class="text-center" style="font-size: 1.2em;">${checkBad}</td><td></td>`;
+                    tr.innerHTML = `<td class="text-center">${displayDate}</td><td class="text-left-align">${formattedContent}</td><td class="text-center" style="${styleGood}">${evalDisp.good}</td><td class="text-center" style="${styleOk}">${evalDisp.ok}</td><td class="text-center" style="${styleBad}">${evalDisp.bad}</td><td></td>`;
                 }
 
                 tbody.appendChild(tr);
@@ -4627,15 +4838,16 @@
                     })
                 );
                 logs.forEach(log => {
+                    const evalDisp = getLogEvalDisplay(log);
                     logRows.push(new TableRow({
                         children: [
                             createCell(log.code || '', { align: AlignmentType.CENTER, widthDxa: cCode }),
                             createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER, widthDxa: cDate }),
                             createCell(log.content || '', { widthDxa: cStrat }),
                             createCell(log.material || '', { widthDxa: cMat }),
-                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: cGood }),
-                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: cOk }),
-                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: cBad }),
+                            createCell(evalDisp.good, { align: AlignmentType.CENTER, widthDxa: cGood }),
+                            createCell(evalDisp.ok, { align: AlignmentType.CENTER, widthDxa: cOk }),
+                            createCell(evalDisp.bad, { align: AlignmentType.CENTER, widthDxa: cBad }),
                             createCell('', { widthDxa: cSign })
                         ]
                     }));
@@ -4664,14 +4876,15 @@
                     })
                 );
                 logs.forEach(log => {
+                    const evalDisp = getLogEvalDisplay(log);
                     logRows.push(new TableRow({
                         children: [
                             createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER, widthDxa: eDate }),
                             createCell(log.content || '', { widthDxa: eContent }),
                             createCell(log.material || '', { widthDxa: eMat }),
-                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: eGood }),
-                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: eOk }),
-                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: eBad }),
+                            createCell(evalDisp.good, { align: AlignmentType.CENTER, widthDxa: eGood }),
+                            createCell(evalDisp.ok, { align: AlignmentType.CENTER, widthDxa: eOk }),
+                            createCell(evalDisp.bad, { align: AlignmentType.CENTER, widthDxa: eBad }),
                             createCell('', { widthDxa: eSign })
                         ]
                     }));
@@ -4699,13 +4912,14 @@
                     })
                 );
                 logs.forEach(log => {
+                    const evalDisp = getLogEvalDisplay(log);
                     logRows.push(new TableRow({
                         children: [
                             createCell(log.unit || '', { widthDxa: moUnit }),
                             createCell(log.content || '', { widthDxa: moContent }),
-                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: moGood }),
-                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: moOk }),
-                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: moBad }),
+                            createCell(evalDisp.good, { align: AlignmentType.CENTER, widthDxa: moGood }),
+                            createCell(evalDisp.ok, { align: AlignmentType.CENTER, widthDxa: moOk }),
+                            createCell(evalDisp.bad, { align: AlignmentType.CENTER, widthDxa: moBad }),
                             createCell('', { widthDxa: moNote })
                         ]
                     }));
@@ -4734,14 +4948,15 @@
                     })
                 );
                 logs.forEach(log => {
+                    const evalDisp = getLogEvalDisplay(log);
                     logRows.push(new TableRow({
                         children: [
                             createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER, widthDxa: mrDate }),
                             createCell(log.unit || '', { widthDxa: mrUnit }),
                             createCell(log.content || '', { widthDxa: mrContent }),
-                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mrGood }),
-                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mrOk }),
-                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mrBad }),
+                            createCell(evalDisp.good, { align: AlignmentType.CENTER, widthDxa: mrGood }),
+                            createCell(evalDisp.ok, { align: AlignmentType.CENTER, widthDxa: mrOk }),
+                            createCell(evalDisp.bad, { align: AlignmentType.CENTER, widthDxa: mrBad }),
                             createCell('', { widthDxa: mrSign })
                         ]
                     }));
@@ -4770,13 +4985,14 @@
                     })
                 );
                 logs.forEach(log => {
+                    const evalDisp = getLogEvalDisplay(log);
                     logRows.push(new TableRow({
                         children: [
                             createCell(formatDateForTable(log.date), { align: AlignmentType.CENTER, widthDxa: mvDate }),
                             createCell(log.content || '', { widthDxa: mvContent }),
-                            createCell(log.eval === '良好' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mvGood }),
-                            createCell(log.eval === '尚可' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mvOk }),
-                            createCell(log.eval === '待改進' ? '✓' : '', { align: AlignmentType.CENTER, widthDxa: mvBad }),
+                            createCell(evalDisp.good, { align: AlignmentType.CENTER, widthDxa: mvGood }),
+                            createCell(evalDisp.ok, { align: AlignmentType.CENTER, widthDxa: mvOk }),
+                            createCell(evalDisp.bad, { align: AlignmentType.CENTER, widthDxa: mvBad }),
                             createCell('', { widthDxa: mvSign })
                         ]
                     }));
