@@ -299,60 +299,43 @@
         </div>
     </div>
 
-    <!-- ======================= 帶入步驟二：教學目標與學生名單快選確認 Modal ======================= -->
-    <div id="sync-students-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50 transition-opacity">
+    <!-- ======================= 步驟二：從步驟一 CSV 挑選學生 Modal ======================= -->
+    <div id="student-picker-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50 transition-opacity">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 sm:p-6 max-w-xl w-full shadow-2xl transition-all scale-100 space-y-4 max-h-[90vh] flex flex-col">
             <!-- 標題 -->
             <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700 shrink-0">
                 <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                        <i class="fas fa-users-gear text-sm"></i>
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <i class="fas fa-user-graduate text-sm"></i>
                     </div>
                     <div>
-                        <h3 class="text-base font-bold text-gray-900 dark:text-white">同步至步驟 2 課程規劃表</h3>
-                        <p class="text-[11px] text-gray-500 dark:text-gray-400">已自動解析教學目標與受測學生名單，請確認入班名冊</p>
+                        <h3 class="text-base font-bold text-gray-900 dark:text-white">從步驟 1 CSV 挑選受測學生</h3>
+                        <p class="text-[11px] text-gray-500 dark:text-gray-400">已自動解析班級受測名單，請勾選欲加入本扶助班的學生</p>
                     </div>
                 </div>
-                <button type="button" onclick="closeSyncStudentsModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm p-1 rounded-lg">
+                <button type="button" onclick="closeStudentPickerModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm p-1 rounded-lg">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
 
             <!-- 內容滾動區 -->
             <div class="overflow-y-auto custom-scrollbar space-y-3.5 pr-1 text-xs">
-                <!-- 目標統計摘要 -->
-                <div class="bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 rounded-lg p-2.5 flex items-center justify-between">
-                    <span class="text-blue-900 dark:text-blue-300 font-medium">
-                        <i class="fas fa-bullseye mr-1.5 text-blue-600 dark:text-blue-400"></i>預計同步教學目標：
-                    </span>
-                    <span id="sync-goals-count-badge" class="font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">共 0 項</span>
-                </div>
-
                 <!-- 學生名單核取區 -->
                 <div class="space-y-2">
                     <div class="flex flex-wrap items-center justify-between gap-1.5">
                         <label class="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
-                            <i class="fas fa-user-graduate text-emerald-600 dark:text-emerald-400"></i>
-                            <span>勾選入班學生名單（偵測到 <span id="sync-detected-student-count">0</span> 位）：</span>
+                            <i class="fas fa-users text-emerald-600 dark:text-emerald-400"></i>
+                            <span>勾選入班學生名單（共 <span id="modal-csv-student-count">0</span> 位）：</span>
                         </label>
                         <div class="flex items-center gap-1">
-                            <button type="button" onclick="toggleAllSyncStudents(true)" class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium text-[11px] transition">全選</button>
-                            <button type="button" onclick="toggleAllSyncStudents(false)" class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium text-[11px] transition">全不選</button>
-                            <button type="button" onclick="filterSyncStudentsByError(2)" class="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/50 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-medium text-[11px] transition">錯 2 題↑</button>
+                            <button type="button" onclick="toggleAllModalPickerStudents(true)" class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium text-[11px] transition">全選</button>
+                            <button type="button" onclick="toggleAllModalPickerStudents(false)" class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium text-[11px] transition">全不選</button>
                         </div>
                     </div>
 
                     <!-- 學生多選清單容器 -->
-                    <div id="sync-students-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-2 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div id="modal-picker-students-container" class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto custom-scrollbar p-2 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg border border-gray-200 dark:border-gray-700">
                         <!-- 動態插入 -->
-                    </div>
-
-                    <!-- 手動補充學生快速輸入 -->
-                    <div class="flex gap-2 items-center pt-1">
-                        <input type="text" id="sync-extra-student-input" placeholder="欲手動補充姓名 (以逗號或空格分隔多位)..." class="flex-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-blue-500 outline-none">
-                        <button type="button" onclick="addExtraSyncStudents()" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-xs transition shrink-0 flex items-center gap-1">
-                            <i class="fas fa-plus"></i> 加入名單
-                        </button>
                     </div>
                 </div>
 
@@ -362,11 +345,11 @@
                         <span class="font-bold text-gray-700 dark:text-gray-300">名冊帶入方式：</span>
                         <div class="flex items-center gap-4">
                             <label class="inline-flex items-center gap-1.5 cursor-pointer">
-                                <input type="radio" name="syncStudentMode" value="replace" checked class="text-blue-600 focus:ring-blue-500">
+                                <input type="radio" name="modalPickerMode" value="replace" checked class="text-blue-600 focus:ring-blue-500">
                                 <span>取代目前名冊</span>
                             </label>
                             <label class="inline-flex items-center gap-1.5 cursor-pointer">
-                                <input type="radio" name="syncStudentMode" value="append" class="text-blue-600 focus:ring-blue-500">
+                                <input type="radio" name="modalPickerMode" value="append" class="text-blue-600 focus:ring-blue-500">
                                 <span>追加至現有名冊</span>
                             </label>
                         </div>
@@ -374,12 +357,8 @@
 
                     <div class="space-y-1.5 text-gray-700 dark:text-gray-300">
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" id="sync-opt-mask" checked class="rounded text-amber-600 focus:ring-amber-500">
+                            <input type="checkbox" id="modal-picker-opt-mask" checked class="rounded text-amber-600 focus:ring-amber-500">
                             <span>同時啟動「學生姓名去識別化遮罩」（如：李○華、王○）保護個資</span>
-                        </label>
-                        <label id="sync-opt-clear-demo-wrapper" class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" id="sync-opt-clear-demo" checked class="rounded text-blue-600 focus:ring-blue-500">
-                            <span>一併清空步驟二的預設示範課堂日誌（方便直接點擊「自動排課」生成課表）</span>
                         </label>
                     </div>
                 </div>
@@ -388,22 +367,19 @@
                 <div class="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-2.5 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
                     <i class="fas fa-shield-halved text-emerald-600 dark:text-emerald-400 text-xs mt-0.5 shrink-0"></i>
                     <div>
-                        <strong>純前端資安保護：</strong>學生姓名僅留存於本機瀏覽器暫存（LocalStorage），絕不回傳任何外部伺服器。公用電腦請於離開前使用右上角「安全清空暫存」。
+                        <strong>純前端資安保護：</strong>學生姓名僅留存於本機瀏覽器暫存（LocalStorage），絕不回傳外部伺服器。
                     </div>
                 </div>
             </div>
 
             <!-- 操作按鈕列 -->
             <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-gray-100 dark:border-gray-700 shrink-0">
-                <button type="button" onclick="closeSyncStudentsModal()" class="w-full sm:w-auto px-3.5 py-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition font-medium">
+                <button type="button" onclick="closeStudentPickerModal()" class="w-full sm:w-auto px-4 py-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition font-medium">
                     取消
                 </button>
-                <button type="button" onclick="executeSyncOnlyGoals()" class="w-full sm:w-auto px-3 py-2 text-xs font-semibold bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg transition flex items-center justify-center gap-1.5">
-                    <span>僅帶入教學目標 (不帶入學生)</span>
-                </button>
-                <button type="button" onclick="executeSyncWithStudents()" class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+                <button type="button" onclick="executeModalPickerImport()" class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
                     <i class="fas fa-check-circle"></i>
-                    <span id="sync-confirm-btn-label">確定帶入 (目標 + 學生)</span>
+                    <span id="modal-picker-confirm-btn-label">確認帶入所選學生</span>
                 </button>
             </div>
         </div>
@@ -527,7 +503,7 @@
                             <span class="text-xs text-blue-600 dark:text-blue-400">已自動偵測欄位，若有誤可手動微調</span>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs mb-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
                             <!-- 數學科專用 -->
                             <div class="field-math">
                                 <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1">學習內容 / 指標</label>
@@ -553,14 +529,6 @@
                                 <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1">答錯人數 / 未通過(X)</label>
                                 <select id="valueColSelect" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 outline-none"></select>
                             </div>
-                            <!-- 共同：受測學生名單 (選填) -->
-                            <div>
-                                <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1 flex items-center justify-between">
-                                    <span>學生姓名 / 名冊 (選填)</span>
-                                    <span class="text-[10px] font-normal text-emerald-600 dark:text-emerald-400"><i class="fas fa-shield-halved"></i> 本機資安保護</span>
-                                </label>
-                                <select id="studentColSelect" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 outline-none"></select>
-                            </div>
                         </div>
 
                         <!-- 預覽框 -->
@@ -569,6 +537,56 @@
                         <button id="confirmMappingBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2.5 rounded-lg transition shadow flex items-center justify-center gap-2">
                             <i class="fas fa-check"></i> 確認欄位正確，開始進行錯題分析
                         </button>
+                    </div>
+                </div>
+
+                <!-- 受測學生名冊快速帶入 (獨立區塊，讀取 CSV 後自動顯示) -->
+                <div id="csvStudentsCard" class="hidden bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-emerald-200 dark:border-emerald-800/60">
+                    <div class="flex flex-wrap items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700 gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                                <i class="fas fa-user-graduate"></i>
+                            </span>
+                            <div>
+                                <h2 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <span>受測學生名冊快速帶入</span>
+                                    <span class="text-[11px] font-normal px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                        自動辨識到 <strong id="csv-student-count">0</strong> 位學生
+                                    </span>
+                                </h2>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">系統已自動從 CSV 橫向表頭提取學生名冊，請勾選要帶入步驟 2 課程規劃表的學生：</p>
+                            </div>
+                        </div>
+                        <!-- 快速工具 -->
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="toggleAllCsvStudents(true)" class="px-2.5 py-1 text-xs rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition font-medium">全選</button>
+                            <button type="button" onclick="toggleAllCsvStudents(false)" class="px-2.5 py-1 text-xs rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition font-medium">全不選</button>
+                        </div>
+                    </div>
+
+                    <!-- 學生清單網格 -->
+                    <div id="csv-students-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-56 overflow-y-auto custom-scrollbar p-2.5 bg-gray-50/80 dark:bg-gray-900/60 rounded-xl border border-gray-200 dark:border-gray-700 mb-3">
+                        <!-- 動態生成學生勾選鈕 -->
+                    </div>
+
+                    <!-- 底部操作列與資安提示 -->
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 text-xs text-gray-700 dark:text-gray-300">
+                            <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                                <input type="checkbox" id="csv-opt-mask" checked class="rounded text-amber-600 focus:ring-amber-500">
+                                <span>同步啟用「姓名去識別化遮罩」（如：李○華、王○）</span>
+                            </label>
+                            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <i class="fas fa-shield-halved"></i> 本機資安保護，絕不上傳伺服器
+                            </span>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="importSelectedStudentsToStep2()" class="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-lg shadow-sm transition flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer">
+                                <i class="fas fa-arrow-right-circle text-base"></i>
+                                <span>帶入步驟 2 學生名單 (<span id="csv-selected-count-btn">0</span> 位)</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -863,6 +881,9 @@
                                 <i class="fas fa-users"></i> 學生名單與評量成績
                             </h3>
                             <div class="flex items-center gap-1.5">
+                                <button id="importStudentsFromStep1Btn" onclick="openStep2StudentPickerModal()" class="hidden bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-2 py-1 rounded-lg transition flex items-center gap-1 shadow-xs font-medium text-xs" title="從步驟一匯入的 CSV 中選擇受測學生">
+                                    <i class="fas fa-user-check"></i> 從步驟 1 CSV 挑選
+                                </button>
                                 <button onclick="confirmClearStudents()" class="bg-gray-100 dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-950/40 text-gray-600 hover:text-red-600 dark:text-gray-300 dark:hover:text-red-400 border border-gray-300 dark:border-gray-600 px-2 py-1 rounded-lg transition flex items-center gap-1 shadow-xs font-medium text-xs" title="清空學生名單">
                                     <i class="fas fa-trash-can"></i> 清空名冊
                                 </button>
@@ -1085,13 +1106,12 @@
         const chiContentColSelect = document.getElementById('chiContentColSelect');
         const focusColSelect = document.getElementById('focusColSelect');
         const valueColSelect = document.getElementById('valueColSelect');
-        const studentColSelect = document.getElementById('studentColSelect');
         const dataPreview = document.getElementById('dataPreview');
         const confirmMappingBtn = document.getElementById('confirmMappingBtn');
 
-        let extractedAllStudentsMap = {}; // name -> { name, totalErrors, questionIds: [] }
+        // 儲存步驟一 CSV 解析出的學生名單：Array of { name: string, originalHeader: string, checked: boolean }
+        let detectedStudentsFromCSV = [];
         let currentSyncGoalsText = "";
-        let currentSyncCandidates = [];
 
         const step2Section = document.getElementById('step2Section');
         const step3Section = document.getElementById('step3Section');
@@ -1189,27 +1209,28 @@
             detectAndSetupMapping();
         }
 
-        function parseStudentsFromCell(cellStr) {
-            if (!cellStr) return [];
-            const tokens = cellStr.split(/[\n\r,，、;；/|\t]+/);
-            const students = [];
-            tokens.forEach(rawToken => {
-                const subTokens = rawToken.trim().split(/\s{1,}/);
-                subTokens.forEach(sub => {
-                    let t = sub.trim();
-                    t = t.replace(/[\(（\[【][^\)）\]】]*[\)）\]】]/g, '').trim();
-                    t = t.replace(/^[\d\(\)\[\]（）號#\.\-\s]+/, '').trim();
-                    t = t.replace(/[\d\(\)\[\]（）號#\.\-\s]+$/, '').trim();
-                    
-                    const noise = ['無', '全對', '全錯', '通過', '未通過', '答對', '答錯', '學生', '姓名', '人數', '總計', '合計', 'none', 'null', 'na', 'n/a', '無未通過學生', '全班通過', '未測驗', '缺考'];
-                    if (t.length >= 2 && t.length <= 15 && !noise.includes(t.toLowerCase()) && !/^\d+$/.test(t)) {
-                        if (!students.includes(t)) {
-                            students.push(t);
-                        }
-                    }
-                });
-            });
-            return students;
+        function extractStudentNameFromHeader(headerStr) {
+            if (!headerStr) return null;
+            let s = headerStr.trim();
+            const nonStudentKeywords = [
+                '題號', '基本學習內容', '學習表現', '學習內容', '學習表現/學習內容', '評量重點',
+                '檢測狀況', '檢測狀況統計', '狀況統計', '合計', '人數', '答錯', '答對', '通過', '未通過',
+                '指標', '代碼', '重點', '年級', '班級', '領域', '科目', '序號', '座號',
+                'O', 'X', '（O）', '（X）', '(O)', '(X)', '檢測狀況統計 O'
+            ];
+            const cleanUp = s.toUpperCase();
+            if (nonStudentKeywords.some(kw => s === kw || cleanUp === kw || s.includes('狀況統計'))) return null;
+            if (cleanUp === 'X' || cleanUp === 'O' || cleanUp === '合計' || cleanUp.startsWith('(欄位') || cleanUp.startsWith('題號')) return null;
+
+            // 科技化評量格式特徵：常帶有 *****學號 前綴，或 (X年級) 後綴
+            let name = s.replace(/[\(（\[【][^\)）\]】]*[\)）\]】]/g, '').trim();
+            name = name.replace(/^[\*\s\d#\.\-\_]+/, '').trim();
+            name = name.replace(/[\*\s\d#\.\-\_]+$/, '').trim();
+
+            if (name.length >= 2 && name.length <= 15 && !nonStudentKeywords.includes(name)) {
+                return name;
+            }
+            return null;
         }
 
         function detectAndSetupMapping() {
@@ -1235,17 +1256,35 @@
                 headers.push(combined);
             }
 
-            const selects = [contentColSelect, valueColSelect, qNumColSelect, chiContentColSelect, focusColSelect, studentColSelect];
+            const selects = [contentColSelect, valueColSelect, qNumColSelect, chiContentColSelect, focusColSelect];
             selects.forEach(sel => {
                 sel.innerHTML = "";
-                if (sel === studentColSelect) {
-                    sel.add(new Option("(無 / 不帶入學生名單)", "-1"));
-                }
                 headers.forEach((h, idx) => {
                     let label = h.length > 20 ? h.substring(0, 20) + "..." : h;
                     sel.add(new Option(`[欄位 ${idx + 1}] ${label}`, idx));
                 });
             });
+
+            // 自動從表頭掃描學生名冊（橫向排列的學生欄位）
+            detectedStudentsFromCSV = [];
+            const seenNames = new Set();
+            headers.forEach(h => {
+                const name = extractStudentNameFromHeader(h);
+                if (name && !seenNames.has(name)) {
+                    seenNames.add(name);
+                    detectedStudentsFromCSV.push({
+                        name: name,
+                        originalHeader: h,
+                        checked: true
+                    });
+                }
+            });
+
+            // 渲染步驟一獨立學生名冊卡片
+            renderCsvStudentsCard();
+
+            // 更新步驟二「從步驟 1 CSV 挑選」按鈕的可見度
+            updateStep2ImportBtnVisibility();
 
             guessMapping();
             updatePreview();
@@ -1288,14 +1327,6 @@
 
             if (vIdx !== -1) valueColSelect.value = vIdx;
 
-            // 學生名冊/姓名欄位自動猜測
-            let sIdx = findIdx(["答錯學生", "未通過學生", "受測學生", "受試學生", "學生姓名", "學生名冊", "學生", "姓名", "名冊", "名單"]);
-            if (sIdx !== -1 && sIdx !== vIdx) {
-                studentColSelect.value = sIdx;
-            } else {
-                studentColSelect.value = "-1";
-            }
-
             if (currentSubject === 'math') {
                 let cIdx = findIdx(["內容", "指標", "基本學習內容"]);
                 if (cIdx !== -1) contentColSelect.value = cIdx;
@@ -1318,30 +1349,23 @@
             let html = "";
             let startPreviewRow = headerRowIndex + 1;
             let previewRows = Math.min(startPreviewRow + 3, rawRows.length);
-            const sCol = parseInt(studentColSelect.value);
 
             for (let i = startPreviewRow; i < previewRows; i++) {
                 const row = rawRows[i];
                 const vVal = row[valueColSelect.value] || "-";
-                let sSnippet = "";
-                if (sCol >= 0) {
-                    const sRaw = row[sCol] || "";
-                    const sClean = sRaw.length > 15 ? sRaw.substring(0, 15) + "..." : sRaw;
-                    sSnippet = ` | 學生="${sClean || '無'}"`;
-                }
 
                 if (currentSubject === 'math') {
                     const cVal = row[contentColSelect.value] || "-";
-                    html += `第 ${i + 1} 列: 內容="${cVal.substring(0, 15)}..." | 答錯人數="${vVal}"${sSnippet}\n`;
+                    html += `第 ${i + 1} 列: 內容="${cVal.substring(0, 15)}..." | 答錯人數="${vVal}"\n`;
                 } else if (currentSubject === 'chinese') {
                     const qVal = row[qNumColSelect.value] || "-";
                     const cVal = row[chiContentColSelect.value] || "-";
                     const fVal = row[focusColSelect.value] || "-";
-                    html += `第 ${i + 1} 列: 題號="${qVal}" | 內容="${cVal.substring(0, 8)}..." | 重點="${fVal.substring(0, 8)}..." | 答錯="${vVal}"${sSnippet}\n`;
+                    html += `第 ${i + 1} 列: 題號="${qVal}" | 內容="${cVal.substring(0, 8)}..." | 重點="${fVal.substring(0, 8)}..." | 答錯="${vVal}"\n`;
                 } else if (currentSubject === 'english') {
                     const qVal = row[qNumColSelect.value] || "-";
                     const fVal = row[focusColSelect.value] || "-";
-                    html += `第 ${i + 1} 列: 題號="${qVal}" | 重點="${fVal.substring(0, 15)}..." | 答錯="${vVal}"${sSnippet}\n`;
+                    html += `第 ${i + 1} 列: 題號="${qVal}" | 重點="${fVal.substring(0, 15)}..." | 答錯="${vVal}"\n`;
                 }
             }
             dataPreview.textContent = html;
@@ -1350,13 +1374,11 @@
         // 確認並分析
         confirmMappingBtn.addEventListener('click', () => {
             parsedData = [];
-            extractedAllStudentsMap = {};
             const vIdx = parseInt(valueColSelect.value);
             const mathCIdx = parseInt(contentColSelect.value);
             const qNumIdx = parseInt(qNumColSelect.value);
             const chiCIdx = parseInt(chiContentColSelect.value);
             const focusIdx = parseInt(focusColSelect.value);
-            const studentIdx = parseInt(studentColSelect.value);
 
             for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
                 const row = rawRows[i];
@@ -1368,18 +1390,6 @@
                 let errorCount = parseInt(valStr.replace(/[^\d]/g, '')) || 0;
                 let isZeroError = (valStr.trim() === "" || errorCount === 0);
 
-                // 解析該列學生姓名
-                let rowStudents = [];
-                if (studentIdx >= 0 && row[studentIdx]) {
-                    rowStudents = parseStudentsFromCell(row[studentIdx]);
-                }
-
-                // 若答錯人數為 0 但列出了學生，以名單人數為準
-                if (errorCount === 0 && rowStudents.length > 0) {
-                    errorCount = rowStudents.length;
-                    isZeroError = false;
-                }
-
                 let item = {
                     id: i,
                     errorCount: errorCount,
@@ -1389,18 +1399,8 @@
                     code: "",
                     qNum: 0,
                     chiContent: "",
-                    focus: "",
-                    students: rowStudents
+                    focus: ""
                 };
-
-                // 統計全域學生資料
-                rowStudents.forEach(stName => {
-                    if (!extractedAllStudentsMap[stName]) {
-                        extractedAllStudentsMap[stName] = { name: stName, totalErrors: 0, questionIds: [] };
-                    }
-                    extractedAllStudentsMap[stName].totalErrors++;
-                    extractedAllStudentsMap[stName].questionIds.push(i);
-                });
 
                 if (currentSubject === 'math') {
                     const content = row[mathCIdx] || "";
@@ -1426,12 +1426,7 @@
             renderTable();
 
             const validCount = parsedData.filter(p => !p.isZeroError).length;
-            const detectedStudentCount = Object.keys(extractedAllStudentsMap).length;
-            if (detectedStudentCount > 0) {
-                statsDisplay.innerHTML = `分析結果：共 <strong>${validCount}</strong> 筆錯題 <span class="mx-1 opacity-50">|</span> 偵測到 <strong>${detectedStudentCount}</strong> 位受測學生`;
-            } else {
-                statsDisplay.textContent = `分析結果：共 ${validCount} 筆錯題`;
-            }
+            statsDisplay.textContent = `分析結果：共 ${validCount} 筆錯題`;
 
             step2Section.classList.remove('hidden');
             step3Section.classList.remove('hidden');
@@ -1973,7 +1968,7 @@
             XLSX.writeFile(wb, `學習扶助分析佐證表_${currentSubject}_${timestamp}.xlsx`);
         }
 
-        // 雙系統核心串聯：一鍵將目標與學生名單注入 Course Planner
+        // 雙系統核心串聯：一鍵將教學目標注入 Course Planner
         function syncGoalsToPlanner() {
             let goalsText = resultOutput.value.trim();
             if (!goalsText) {
@@ -1988,206 +1983,7 @@
             }
 
             currentSyncGoalsText = goalsText;
-
-            // 檢查是否從 CSV 中偵測到學生名單
-            const detectedStudents = Object.values(extractedAllStudentsMap);
-            if (detectedStudents.length > 0) {
-                openSyncStudentsModal(goalsText);
-                return;
-            }
-
-            // 若 CSV 無學生名單，執行原有同步流程
             executeDirectSync(goalsText);
-        }
-
-        function openSyncStudentsModal(goalsText) {
-            currentSyncGoalsText = goalsText;
-            const modal = document.getElementById('sync-students-modal');
-            const countBadge = document.getElementById('sync-goals-count-badge');
-            const detectedCountSpan = document.getElementById('sync-detected-student-count');
-            const demoOptionWrapper = document.getElementById('sync-opt-clear-demo-wrapper');
-            const clearDemoCheckbox = document.getElementById('sync-opt-clear-demo');
-
-            const goalLines = goalsText.split('\n').filter(l => l.trim().length > 0);
-            countBadge.textContent = `共 ${goalLines.length} 項`;
-
-            if (isDemoState() && appState.logs && appState.logs.length > 0) {
-                demoOptionWrapper.classList.remove('hidden');
-                clearDemoCheckbox.checked = true;
-            } else {
-                demoOptionWrapper.classList.add('hidden');
-                clearDemoCheckbox.checked = false;
-            }
-
-            // 分析勾選題目與學生錯題的關聯性
-            const selectedItems = parsedData.filter(item => item.selected && !item.isZeroError);
-            const hasSelectedItems = selectedItems.length > 0;
-
-            const candidateMap = {};
-            Object.values(extractedAllStudentsMap).forEach(st => {
-                candidateMap[st.name] = {
-                    name: st.name,
-                    totalErrors: st.totalErrors,
-                    selectedErrors: 0,
-                    checked: true
-                };
-            });
-
-            if (hasSelectedItems) {
-                selectedItems.forEach(item => {
-                    (item.students || []).forEach(stName => {
-                        if (candidateMap[stName]) {
-                            candidateMap[stName].selectedErrors++;
-                        }
-                    });
-                });
-                // 有選題目時，若學生在所選題目錯題數 > 0 則預設勾選，否則預設不勾選
-                Object.values(candidateMap).forEach(cand => {
-                    cand.checked = (cand.selectedErrors > 0);
-                });
-            }
-
-            currentSyncCandidates = Object.values(candidateMap).sort((a, b) => {
-                if (hasSelectedItems) {
-                    if (b.selectedErrors !== a.selectedErrors) return b.selectedErrors - a.selectedErrors;
-                }
-                return b.totalErrors - a.totalErrors;
-            });
-
-            detectedCountSpan.textContent = currentSyncCandidates.length;
-            renderSyncStudentCheckboxes();
-            updateSyncConfirmBtnLabel();
-
-            modal.classList.remove('hidden');
-        }
-
-        function renderSyncStudentCheckboxes() {
-            const container = document.getElementById('sync-students-container');
-            container.innerHTML = '';
-            const hasSelectedItems = parsedData.some(item => item.selected && !item.isZeroError);
-
-            currentSyncCandidates.forEach((cand, idx) => {
-                const label = document.createElement('label');
-                label.className = "flex items-center justify-between p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer text-xs transition shadow-2xs select-none";
-                
-                let countBadgeHtml = "";
-                if (hasSelectedItems && cand.selectedErrors > 0) {
-                    countBadgeHtml = `<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300 font-semibold shrink-0">錯 ${cand.selectedErrors} 題</span>`;
-                } else if (cand.totalErrors > 0) {
-                    countBadgeHtml = `<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 font-medium shrink-0">共錯 ${cand.totalErrors} 題</span>`;
-                }
-
-                label.innerHTML = `
-                    <div class="flex items-center gap-2 min-w-0 pr-1">
-                        <input type="checkbox" data-index="${idx}" ${cand.checked ? 'checked' : ''} onchange="onSyncStudentCheckboxChange(${idx}, this.checked)" class="student-sync-checkbox rounded text-blue-600 focus:ring-blue-500 shrink-0 cursor-pointer">
-                        <span class="font-bold text-gray-800 dark:text-gray-100 truncate">${cand.name}</span>
-                    </div>
-                    ${countBadgeHtml}
-                `;
-                container.appendChild(label);
-            });
-        }
-
-        function onSyncStudentCheckboxChange(index, checked) {
-            if (currentSyncCandidates[index]) {
-                currentSyncCandidates[index].checked = checked;
-            }
-            updateSyncConfirmBtnLabel();
-        }
-
-        function toggleAllSyncStudents(checked) {
-            currentSyncCandidates.forEach(cand => cand.checked = checked);
-            renderSyncStudentCheckboxes();
-            updateSyncConfirmBtnLabel();
-        }
-
-        function filterSyncStudentsByError(minErrors) {
-            const hasSelectedItems = parsedData.some(item => item.selected && !item.isZeroError);
-            currentSyncCandidates.forEach(cand => {
-                const err = hasSelectedItems ? cand.selectedErrors : cand.totalErrors;
-                cand.checked = (err >= minErrors);
-            });
-            renderSyncStudentCheckboxes();
-            updateSyncConfirmBtnLabel();
-        }
-
-        function addExtraSyncStudents() {
-            const input = document.getElementById('sync-extra-student-input');
-            const val = input.value.trim();
-            if (!val) return;
-            const names = parseStudentsFromCell(val);
-            if (names.length === 0) {
-                showAlert("請輸入有效的學生姓名。");
-                return;
-            }
-            names.forEach(name => {
-                const existing = currentSyncCandidates.find(c => c.name === name);
-                if (existing) {
-                    existing.checked = true;
-                } else {
-                    currentSyncCandidates.unshift({
-                        name: name,
-                        totalErrors: 0,
-                        selectedErrors: 0,
-                        checked: true
-                    });
-                }
-            });
-            input.value = "";
-            document.getElementById('sync-detected-student-count').textContent = currentSyncCandidates.length;
-            renderSyncStudentCheckboxes();
-            updateSyncConfirmBtnLabel();
-        }
-
-        function updateSyncConfirmBtnLabel() {
-            const checkedCount = currentSyncCandidates.filter(c => c.checked).length;
-            const label = document.getElementById('sync-confirm-btn-label');
-            if (label) {
-                label.textContent = `確定帶入 (目標 + ${checkedCount} 位學生)`;
-            }
-        }
-
-        function closeSyncStudentsModal() {
-            document.getElementById('sync-students-modal').classList.add('hidden');
-        }
-
-        function executeSyncWithStudents() {
-            const checkedStudents = currentSyncCandidates.filter(c => c.checked);
-            const mode = document.querySelector('input[name="syncStudentMode"]:checked')?.value || 'replace';
-            const enableMask = document.getElementById('sync-opt-mask')?.checked;
-            const clearDemoLogs = document.getElementById('sync-opt-clear-demo')?.checked;
-
-            if (mode === 'replace' || isDemoState()) {
-                if (checkedStudents.length > 0) {
-                    appState.students = checkedStudents.map(c => ({ name: c.name, score1: "", score2: "" }));
-                }
-            } else {
-                const existingNames = new Set((appState.students || []).map(s => (s.name || '').trim()));
-                checkedStudents.forEach(c => {
-                    if (!existingNames.has(c.name)) {
-                        appState.students.push({ name: c.name, score1: "", score2: "" });
-                    }
-                });
-            }
-
-            if (enableMask) {
-                appState.maskStudents = true;
-                const toggle = document.getElementById('toggleAnonymize');
-                if (toggle) toggle.checked = true;
-            }
-
-            applySyncState(currentSyncGoalsText, clearDemoLogs);
-            closeSyncStudentsModal();
-
-            const studentCount = checkedStudents.length;
-            showAlert(`已成功將教學目標與 ${studentCount} 位受測學生帶入步驟 2 課程規劃表！\n\n您可以在左側微調名冊與成績，右側已自動生成最新 A4 預覽。`);
-        }
-
-        function executeSyncOnlyGoals() {
-            const clearDemoLogs = document.getElementById('sync-opt-clear-demo')?.checked;
-            applySyncState(currentSyncGoalsText, clearDemoLogs);
-            closeSyncStudentsModal();
-            showAlert("已成功將教學目標同步至步驟 2 課程規劃表。");
         }
 
         function applySyncState(goalsText, shouldClearLogs) {
@@ -2237,6 +2033,200 @@
                 applySyncState(goalsText, false);
                 showAlert("已成功將教學目標同步至課程規劃表。\n\n您可以在左側微調學生名單與日誌，右側已自動生成最新的 A4 預覽。");
             }
+        }
+
+        // =========================================================================
+        // 步驟一 & 步驟二：受測學生名冊獨立管理與帶入模組
+        // =========================================================================
+
+        // 渲染步驟一獨立學生名冊卡片
+        function renderCsvStudentsCard() {
+            const card = document.getElementById('csvStudentsCard');
+            const countEl = document.getElementById('csv-student-count');
+            const grid = document.getElementById('csv-students-grid');
+            if (!card || !grid) return;
+
+            if (detectedStudentsFromCSV.length === 0) {
+                card.classList.add('hidden');
+                return;
+            }
+
+            if (countEl) countEl.textContent = detectedStudentsFromCSV.length;
+            grid.innerHTML = '';
+
+            detectedStudentsFromCSV.forEach((st, idx) => {
+                const label = document.createElement('label');
+                label.className = "flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600 cursor-pointer text-xs transition shadow-2xs select-none";
+                label.innerHTML = `
+                    <input type="checkbox" data-index="${idx}" ${st.checked ? 'checked' : ''} onchange="onCsvStudentCheckboxChange(${idx}, this.checked)" class="rounded text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer">
+                    <span class="font-bold text-gray-800 dark:text-gray-100 truncate" title="${st.name}">${st.name}</span>
+                `;
+                grid.appendChild(label);
+            });
+
+            updateCsvSelectedCountBtn();
+            card.classList.remove('hidden');
+        }
+
+        function onCsvStudentCheckboxChange(idx, checked) {
+            if (detectedStudentsFromCSV[idx]) {
+                detectedStudentsFromCSV[idx].checked = checked;
+            }
+            updateCsvSelectedCountBtn();
+        }
+
+        function toggleAllCsvStudents(checked) {
+            detectedStudentsFromCSV.forEach(st => st.checked = checked);
+            renderCsvStudentsCard();
+        }
+
+        function updateCsvSelectedCountBtn() {
+            const selectedCount = detectedStudentsFromCSV.filter(st => st.checked).length;
+            const btnSpan = document.getElementById('csv-selected-count-btn');
+            if (btnSpan) btnSpan.textContent = selectedCount;
+        }
+
+        function importSelectedStudentsToStep2() {
+            const selected = detectedStudentsFromCSV.filter(st => st.checked);
+            if (selected.length === 0) {
+                showAlert("請至少勾選一位學生！");
+                return;
+            }
+
+            const enableMask = document.getElementById('csv-opt-mask')?.checked;
+            
+            appState.students = selected.map(st => ({ name: st.name, score1: "", score2: "" }));
+
+            if (enableMask) {
+                appState.maskStudents = true;
+                const toggle = document.getElementById('toggleAnonymize');
+                if (toggle) toggle.checked = true;
+            }
+
+            renderStudentInputs();
+            saveAndRender();
+            updateDemoBannerUI();
+            switchMainTab('planner');
+
+            showAlert(`已成功將 ${selected.length} 位受測學生帶入步驟 2 學生名單！\n\n已自動切換至步驟 2 課程規劃表，您可以直接微調名冊或輸入成績。`);
+        }
+
+        function updateStep2ImportBtnVisibility() {
+            const btn = document.getElementById('importStudentsFromStep1Btn');
+            if (!btn) return;
+            if (detectedStudentsFromCSV.length > 0) {
+                btn.classList.remove('hidden');
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
+        function openStep2StudentPickerModal() {
+            if (detectedStudentsFromCSV.length === 0) {
+                showAlert("步驟一尚未匯入含有學生名單的 CSV 檔案。");
+                return;
+            }
+
+            const modal = document.getElementById('student-picker-modal');
+            const countSpan = document.getElementById('modal-csv-student-count');
+            if (countSpan) countSpan.textContent = detectedStudentsFromCSV.length;
+
+            renderModalPickerStudents();
+            updateModalPickerConfirmBtnLabel();
+            modal.classList.remove('hidden');
+        }
+
+        function closeStudentPickerModal() {
+            const modal = document.getElementById('student-picker-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function renderModalPickerStudents() {
+            const container = document.getElementById('modal-picker-students-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const existingNames = new Set((appState.students || []).map(s => (s.name || '').trim()));
+
+            detectedStudentsFromCSV.forEach((st, idx) => {
+                const isAlreadyIn = existingNames.has(st.name);
+                const label = document.createElement('label');
+                label.className = "flex items-center justify-between p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600 cursor-pointer text-xs transition shadow-2xs select-none";
+                
+                const badge = isAlreadyIn 
+                    ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300 font-normal shrink-0">已在名單</span>` 
+                    : '';
+
+                label.innerHTML = `
+                    <div class="flex items-center gap-2 min-w-0 pr-1">
+                        <input type="checkbox" data-index="${idx}" ${st.checked ? 'checked' : ''} onchange="onModalPickerCheckboxChange(${idx}, this.checked)" class="rounded text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer">
+                        <span class="font-bold text-gray-800 dark:text-gray-100 truncate" title="${st.name}">${st.name}</span>
+                    </div>
+                    ${badge}
+                `;
+                container.appendChild(label);
+            });
+        }
+
+        function onModalPickerCheckboxChange(idx, checked) {
+            if (detectedStudentsFromCSV[idx]) {
+                detectedStudentsFromCSV[idx].checked = checked;
+            }
+            updateCsvSelectedCountBtn();
+            const csvGridCheckbox = document.querySelector(`#csv-students-grid input[data-index="${idx}"]`);
+            if (csvGridCheckbox) csvGridCheckbox.checked = checked;
+
+            updateModalPickerConfirmBtnLabel();
+        }
+
+        function toggleAllModalPickerStudents(checked) {
+            detectedStudentsFromCSV.forEach(st => st.checked = checked);
+            renderModalPickerStudents();
+            renderCsvStudentsCard();
+            updateModalPickerConfirmBtnLabel();
+        }
+
+        function updateModalPickerConfirmBtnLabel() {
+            const checkedCount = detectedStudentsFromCSV.filter(st => st.checked).length;
+            const label = document.getElementById('modal-picker-confirm-btn-label');
+            if (label) {
+                label.textContent = `確認帶入所選學生 (${checkedCount} 位)`;
+            }
+        }
+
+        function executeModalPickerImport() {
+            const selected = detectedStudentsFromCSV.filter(st => st.checked);
+            if (selected.length === 0) {
+                showAlert("請至少勾選一位學生！");
+                return;
+            }
+
+            const mode = document.querySelector('input[name="modalPickerMode"]:checked')?.value || 'replace';
+            const enableMask = document.getElementById('modal-picker-opt-mask')?.checked;
+
+            if (mode === 'replace' || isDemoState()) {
+                appState.students = selected.map(st => ({ name: st.name, score1: "", score2: "" }));
+            } else {
+                const existingNames = new Set((appState.students || []).map(s => (s.name || '').trim()));
+                selected.forEach(st => {
+                    if (!existingNames.has(st.name)) {
+                        appState.students.push({ name: st.name, score1: "", score2: "" });
+                    }
+                });
+            }
+
+            if (enableMask) {
+                appState.maskStudents = true;
+                const toggle = document.getElementById('toggleAnonymize');
+                if (toggle) toggle.checked = true;
+            }
+
+            renderStudentInputs();
+            saveAndRender();
+            updateDemoBannerUI();
+            closeStudentPickerModal();
+
+            showAlert(`已成功將 ${selected.length} 位學生帶入步驟 2 學生名冊！`);
         }
 
 
