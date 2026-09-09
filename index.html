@@ -1281,6 +1281,111 @@
             return (topicId * 100000) + (grade * 10000) + (seq1 * 100) + seq2;
         }
 
+        function getMathTopicIdFromCode(code) {
+            if (!code) return null;
+            const score = getMathContextScore(code);
+            if (score >= 90000000) return null;
+            let tid = Math.floor(score / 100000);
+            if (tid >= 900) return null;
+            return tid;
+        }
+
+        const MATH_TOPIC_KEYWORDS = {
+            110: ['因數', '倍數', '公因數', '公倍數', '質數', '合數', '質因數', '互質'],
+            50: ['分數', '約分', '擴分', '通分', '真分數', '假分數', '帶分數', '等值分數', '異分母', '同分母', '倒數'],
+            60: ['小數', '一位小數', '二位小數', '多位小數', '循環小數', '純小數', '帶小數'],
+            120: ['比與比值', '比值', '比例', '比率', '百分率', '正比', '反比', '連比', '縮圖', '放大圖', '比例尺', '基準量', '比較量'],
+            84: ['面積', '周長', '平方公分', '平方公尺', '平方公里', '公頃', '公畝', '扇形面積', '圓面積'],
+            86: ['體積', '容積', '立方公分', '立方公尺', '公升', '毫升', '分公升', '容量', '表面積'],
+            81: ['長度', '量長度', '公尺', '公分', '毫米', '公里', '幾公分', '幾毫米', '比長短'],
+            82: ['重量', '公斤', '公克', '公噸'],
+            87: ['時間', '年月日', '幾時幾分', '秒', '鐘錶', '時刻', '日曆', '月曆'],
+            85: ['角度', '幾度', '量角器'],
+            88: ['速率', '速度', '時速', '分速', '秒速'],
+            100: [
+                '圖形', '平面圖形', '立體圖形', '形狀', '認識形狀', '三角形', '四邊形', '多邊形',
+                '圓', '圓形', '扇形', '圓心', '半徑', '直徑', '弧長',
+                '平行', '垂直', '線對稱', '對稱軸',
+                '柱體', '錐體', '角柱', '角錐', '圓柱', '圓錐', '正方體', '長方體', '球體'
+            ],
+            70: ['概數', '估算', '四捨五入', '無條件捨去', '無條件進入'],
+            30: ['乘法', '除法', '九九乘法', '乘除', '分分看', '分裝', '平分', '有餘數'],
+            20: ['加法', '減法', '加一加', '減一減', '分與合', '合與分', '加減', '二位數加減', '三位數加減', '四位數加減'],
+            10: ['以內的數', '數到', '認識錢幣', '位值', '一億', '億以上', '數與數線', '數線', '大數'],
+            90: ['規律', '尋找規律', '數量關係', '等差', '數列', '級數', '等量公理', '方程式', '未知數', '坐標', '怎樣解題'],
+            130: ['統計', '長條圖', '折線圖', '圓形圖', '統計圖', '統計表', '做紀錄', '分類整理', '機率', '可能性']
+        };
+
+        function getTopicsForText(text) {
+            if (!text) return [];
+            const matched = [];
+            for (const [topicId, keywords] of Object.entries(MATH_TOPIC_KEYWORDS)) {
+                for (const kw of keywords) {
+                    if (text.includes(kw)) {
+                        matched.push(parseInt(topicId));
+                        break;
+                    }
+                }
+            }
+            return matched;
+        }
+
+        function calculateGoalMatchScore(unitText, objectiveText) {
+            if (!unitText || !objectiveText) return 0;
+            const cleanUnit = unitText.trim();
+            const cleanObj = objectiveText.trim();
+
+            let score = 0;
+            const unitTopics = getTopicsForText(cleanUnit);
+
+            const codeMatch = cleanObj.match(/([NSRD]C?)[-](\d+)[-](\d+)(?:[-](\d+))?|(\d+-[nsad]-\d+)/i);
+            const objTopics = getTopicsForText(cleanObj);
+            if (codeMatch) {
+                const codeTid = getMathTopicIdFromCode(codeMatch[0]);
+                if (codeTid && !objTopics.includes(codeTid)) objTopics.push(codeTid);
+            }
+
+            const highLevelTopics = [110, 50, 60, 120, 84, 86, 81, 82, 87, 85, 88, 70, 90, 130];
+            for (const ut of unitTopics) {
+                if (objTopics.includes(ut) || (ut >= 81 && ut <= 88 && objTopics.includes(80)) || (ut === 80 && objTopics.some(t => t >= 81 && t <= 88))) {
+                    score += highLevelTopics.includes(ut) ? 15 : 10;
+                }
+            }
+
+            const strongKeywords = [
+                '質因數', '公因數', '公倍數', '最大公因數', '最小公倍數',
+                '異分母', '分數的除法', '分數除法', '分數乘法', '分數加減',
+                '小數除法', '小數乘法', '小數的除法', '多位小數',
+                '圓周長', '圓面積', '扇形',
+                '比與比值', '比值', '比例尺', '基準量', '比較量',
+                '表面積', '柱體', '錐體', '展開圖'
+            ];
+            for (const kw of strongKeywords) {
+                if (cleanUnit.includes(kw) && cleanObj.includes(kw)) {
+                    score += 15;
+                }
+            }
+
+            const basicKeywords = ['因數', '倍數', '分數', '小數', '面積', '體積', '容積', '時間', '角度', '乘法', '除法', '加法', '減法', '比值', '圓形', '三角形', '四邊形'];
+            for (const kw of basicKeywords) {
+                if (cleanUnit.includes(kw) && cleanObj.includes(kw)) {
+                    score += 4;
+                }
+            }
+
+            if ((cleanUnit.includes('分數') && cleanObj.includes('小數') && !cleanObj.includes('分數')) ||
+                (cleanUnit.includes('小數') && cleanObj.includes('分數') && !cleanObj.includes('小數'))) {
+                score -= 20;
+            }
+            if ((cleanUnit.includes('因數') || cleanUnit.includes('倍數')) && 
+                (cleanObj.includes('小數') || cleanObj.includes('分數')) && 
+                !cleanObj.includes('因數') && !cleanObj.includes('倍數')) {
+                score -= 20;
+            }
+
+            return score;
+        }
+
         // 智慧合併 (國語)
         function smartMergeFocus(focusSet) {
             let arr = Array.from(focusSet).map(s => s.trim().replace(/[。；\.]$/, ''));
@@ -1843,7 +1948,14 @@
             if (input) input.value = unitName;
             const status = document.getElementById(`log-unit-status-${index}`);
             if (status) {
-                status.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 已選定單元</span>';
+                status.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 已設定單元</span>';
+            }
+            // 即時動態刷新該堂課的教學目標選單與推薦
+            const goalContainer = document.getElementById(`log-goal-container-${index}`);
+            if (goalContainer) {
+                const isChinese = appState.format === 'chinese';
+                let objectiveTexts = !isChinese ? getCleanObjectives(appState.objectives) : [];
+                goalContainer.outerHTML = buildGoalSelectHTML(index, appState.logs[index], objectiveTexts);
             }
             saveAndRender();
         }
@@ -2179,8 +2291,94 @@
                             ? '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 已設定單元</span>' 
                             : '點選下拉快速帶入';
                     }
+                    // 即時動態刷新該堂課的教學目標選單與推薦
+                    const goalContainer = document.getElementById(`log-goal-container-${index}`);
+                    if (goalContainer) {
+                        const isChinese = appState.format === 'chinese';
+                        let objectiveTexts = !isChinese ? getCleanObjectives(appState.objectives) : [];
+                        goalContainer.outerHTML = buildGoalSelectHTML(index, appState.logs[index], objectiveTexts);
+                    }
                 }
             }
+        }
+
+        function buildGoalSelectHTML(index, log, objectiveTexts) {
+            if (!objectiveTexts || objectiveTexts.length === 0) return '';
+            const currentContent = log.content || '';
+            const availableCount = objectiveTexts.filter(t => !currentContent.includes(t.trim())).length;
+            const allAdded = availableCount === 0;
+
+            const unit = (log.unit || '').trim();
+            let recommended = [];
+            let others = [];
+
+            if (unit) {
+                const scored = objectiveTexts.map(text => ({
+                    text,
+                    score: calculateGoalMatchScore(unit, text)
+                }));
+                recommended = scored.filter(s => s.score >= 12).sort((a, b) => b.score - a.score);
+                const recTexts = new Set(recommended.map(r => r.text));
+                others = scored.filter(s => !recTexts.has(s.text));
+            } else {
+                others = objectiveTexts.map(text => ({ text, score: 0 }));
+            }
+
+            const recCount = recommended.length;
+            let badgeHTML = '可多次選取追加不同目標';
+            if (allAdded) {
+                badgeHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 全部目標已帶入</span>';
+            } else if (recCount > 0) {
+                badgeHTML = `<span class="text-amber-600 dark:text-amber-400 font-medium"><i class="fas fa-star text-[10px] mr-0.5"></i>已對照 ${recCount} 項單元推薦</span>`;
+            }
+
+            const renderOption = (text, isRec) => {
+                const cleanText = text.trim();
+                const isAdded = currentContent.includes(cleanText);
+                const prefix = isRec ? '⭐ [推薦] ' : '';
+                if (isAdded) {
+                    return `<option value="${text}" data-raw="${text}" data-rec="${isRec}" disabled class="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-1">[已帶入] ${prefix}${text}</option>`;
+                } else {
+                    const cls = isRec 
+                        ? "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-medium py-1"
+                        : "bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 py-1";
+                    return `<option value="${text}" data-raw="${text}" data-rec="${isRec}" class="${cls}">${prefix}${text}</option>`;
+                }
+            };
+
+            let optionsHTML = '';
+            if (recCount > 0) {
+                optionsHTML += `
+                    <optgroup label="⭐ 推薦符合目前單元目標 (${recCount} 項)" class="font-bold text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20">
+                        ${recommended.map(r => renderOption(r.text, true)).join('')}
+                    </optgroup>
+                    <optgroup label="其他教學目標 (${others.length} 項)" class="font-semibold text-gray-500 dark:text-gray-400">
+                        ${others.map(o => renderOption(o.text, false)).join('')}
+                    </optgroup>
+                `;
+            } else {
+                optionsHTML = others.map(o => renderOption(o.text, false)).join('');
+            }
+
+            return `
+                <div id="log-goal-container-${index}" class="bg-slate-100/80 dark:bg-gray-800/90 p-2.5 rounded-lg border border-slate-200 dark:border-gray-700 space-y-1.5 shadow-2xs">
+                    <div class="flex items-center justify-between text-[11px]">
+                        <label class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                            <i class="fas fa-bullseye text-blue-600 dark:text-blue-400 text-xs"></i>
+                            <span>帶入教學目標至內容</span>
+                        </label>
+                        <span id="log-goal-status-${index}" data-rec-count="${recCount}" class="text-[10px] text-slate-500 dark:text-gray-400">
+                            ${badgeHTML}
+                        </span>
+                    </div>
+                    <select id="log-goal-select-${index}" onchange="updateLog(${index}, 'appendContent', this.value); this.value='';" class="w-full bg-white dark:bg-gray-900 hover:bg-slate-50 dark:hover:bg-gray-850 border border-slate-300 dark:border-gray-600 text-slate-800 dark:text-gray-100 text-xs px-2.5 py-1.5 rounded-md cursor-pointer focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-colors">
+                        <option value="" class="bg-white dark:bg-gray-900 text-slate-400 dark:text-gray-500">
+                            ${allAdded ? '此堂課已帶入所有教學目標' : (recCount > 0 ? `點擊選擇教學目標 (已置頂 ${recCount} 項單元推薦)...` : '點擊選擇欲帶入的教學目標...')}
+                        </option>
+                        ${optionsHTML}
+                    </select>
+                </div>
+            `;
         }
 
         function updateLogGoalSelect(index) {
@@ -2193,25 +2391,36 @@
                 const rawVal = (opt.getAttribute('data-raw') || opt.value || "").trim();
                 if (!rawVal) continue;
                 const isAdded = currentContent.includes(rawVal);
+                const isRec = opt.getAttribute('data-rec') === 'true';
+                const prefix = isRec ? '⭐ [推薦] ' : '';
                 if (isAdded) {
                     opt.disabled = true;
-                    opt.textContent = `[已帶入] ${rawVal}`;
+                    opt.textContent = `[已帶入] ${prefix}${rawVal}`;
                     opt.className = "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-1";
                 } else {
                     opt.disabled = false;
-                    opt.textContent = rawVal;
-                    opt.className = "bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 py-1";
+                    opt.textContent = `${prefix}${rawVal}`;
+                    opt.className = isRec
+                        ? "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-medium py-1"
+                        : "bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 py-1";
                     availableCount++;
                 }
             }
-            if (sel.options.length > 0) {
-                sel.options[0].textContent = availableCount === 0 ? '此堂課已帶入所有教學目標' : '點擊選擇欲帶入的教學目標...';
-            }
             const badge = document.getElementById(`log-goal-status-${index}`);
+            const recCount = badge ? parseInt(badge.getAttribute('data-rec-count') || '0') : 0;
+            if (sel.options.length > 0) {
+                sel.options[0].textContent = availableCount === 0 
+                    ? '此堂課已帶入所有教學目標' 
+                    : (recCount > 0 ? `點擊選擇教學目標 (已置頂 ${recCount} 項單元推薦)...` : '點擊選擇欲帶入的教學目標...');
+            }
             if (badge) {
-                badge.innerHTML = availableCount === 0 
-                    ? '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 全部目標已帶入</span>' 
-                    : '可多次選取追加不同目標';
+                if (availableCount === 0) {
+                    badge.innerHTML = '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 全部目標已帶入</span>';
+                } else if (recCount > 0) {
+                    badge.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-medium"><i class="fas fa-star text-[10px] mr-0.5"></i>已對照 ${recCount} 項單元推薦</span>`;
+                } else {
+                    badge.innerHTML = '可多次選取追加不同目標';
+                }
             }
         }
 
@@ -2725,40 +2934,7 @@
                 const div = document.createElement('div');
                 div.className = "bg-gray-50/80 dark:bg-gray-900/80 p-3 rounded-xl border border-gray-200 dark:border-gray-700/80 shadow-2xs relative group space-y-2.5";
 
-                let quickSelectHTML = '';
-                if (objectiveTexts.length > 0) {
-                    const currentContent = log.content || '';
-                    const availableCount = objectiveTexts.filter(t => !currentContent.includes(t.trim())).length;
-                    const allAdded = availableCount === 0;
-
-                    quickSelectHTML = `
-                        <div class="bg-slate-100/80 dark:bg-gray-800/90 p-2.5 rounded-lg border border-slate-200 dark:border-gray-700 space-y-1.5 shadow-2xs">
-                            <div class="flex items-center justify-between text-[11px]">
-                                <label class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                                    <i class="fas fa-bullseye text-blue-600 dark:text-blue-400 text-xs"></i>
-                                    <span>帶入教學目標至內容</span>
-                                </label>
-                                <span id="log-goal-status-${index}" class="text-[10px] text-slate-500 dark:text-gray-400">
-                                    ${allAdded ? '<span class="text-emerald-600 dark:text-emerald-400 font-medium"><i class="fas fa-check-circle"></i> 全部目標已帶入</span>' : '可多次選取追加不同目標'}
-                                </span>
-                            </div>
-                            <select id="log-goal-select-${index}" onchange="updateLog(${index}, 'appendContent', this.value); this.value='';" class="w-full bg-white dark:bg-gray-900 hover:bg-slate-50 dark:hover:bg-gray-850 border border-slate-300 dark:border-gray-600 text-slate-800 dark:text-gray-100 text-xs px-2.5 py-1.5 rounded-md cursor-pointer focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition-colors">
-                                <option value="" class="bg-white dark:bg-gray-900 text-slate-400 dark:text-gray-500">
-                                    ${allAdded ? '此堂課已帶入所有教學目標' : '點擊選擇欲帶入的教學目標...'}
-                                </option>
-                                ${objectiveTexts.map(text => {
-                                    const cleanText = text.trim();
-                                    const isAdded = currentContent.includes(cleanText);
-                                    if (isAdded) {
-                                        return `<option value="${text}" data-raw="${text}" disabled class="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 py-1">[已帶入] ${text}</option>`;
-                                    } else {
-                                        return `<option value="${text}" data-raw="${text}" class="bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 py-1">${text}</option>`;
-                                    }
-                                }).join('')}
-                            </select>
-                        </div>
-                    `;
-                }
+                let quickSelectHTML = buildGoalSelectHTML(index, log, objectiveTexts);
 
                 let inputsHTML = '';
                 if (isChinese) {
