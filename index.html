@@ -262,6 +262,43 @@
         </div>
     </div>
 
+    <!-- ======================= 公用電腦安全清空確認 Modal (三動線備份防呆) ======================= -->
+    <div id="public-wipe-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50 transition-opacity">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 sm:p-6 max-w-md w-full shadow-2xl transition-all scale-100 space-y-4">
+            <div class="flex items-center gap-2.5 pb-2 border-b border-gray-100 dark:border-gray-700">
+                <div class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                    <i class="fas fa-shield-halved text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-gray-900 dark:text-white">公用電腦安全清空確認</h3>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400">徹底抹除本機瀏覽器暫存，防堵校園個資外洩</p>
+                </div>
+            </div>
+
+            <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                此操作將徹底抹除本機瀏覽器中儲存的所有資料（包括學生名單、前測/期中/後測成績、教學目標與課堂日誌），避免公用電腦造成學童個人資料殘留。
+            </p>
+
+            <div id="public-wipe-backup-hint" class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-lg p-3 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                <!-- 動態注入提示 -->
+            </div>
+
+            <div class="flex flex-col sm:flex-row-reverse sm:justify-start gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <button type="button" onclick="executePublicWipeWithBackup()" class="w-full sm:w-auto px-4 py-2.5 text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-lg shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+                    <i class="fas fa-file-arrow-down"></i>
+                    <span>先備份 JSON 並清空</span>
+                </button>
+                <button type="button" onclick="executePublicWipeDirectly()" class="w-full sm:w-auto px-3.5 py-2.5 text-xs font-semibold bg-red-50 dark:bg-red-950/50 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800/60 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
+                    <i class="fas fa-trash-can"></i>
+                    <span>直接清空 (不備份)</span>
+                </button>
+                <button type="button" onclick="closePublicWipeModal()" class="w-full sm:w-auto px-3 py-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition text-center cursor-pointer">
+                    取消
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ======================= 課本單元檢視與自訂 Modal ======================= -->
     <div id="custom-units-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50 transition-opacity">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 max-w-lg w-full shadow-2xl transition-all max-h-[90vh] flex flex-col">
@@ -3238,55 +3275,113 @@
             reader.readAsText(file);
         }
 
+        // ==========================================
+        // 公用電腦安全清空暫存 (三動線備份防呆)
+        // ==========================================
         function confirmPublicComputerWipe() {
-            showConfirm(
-                "【公用電腦資安防護】\n此操作將徹底抹除瀏覽器內所有暫存資料（包括學生名單、前測與後測成績、自訂教學目標與課堂日誌），避免公用電腦造成學童個人資料外洩。\n\n確定立即安全清空並還原預設？",
-                () => {
-                    try {
-                        localStorage.clear();
-                        sessionStorage.clear();
-                    } catch (e) {
-                        console.error("Storage clear error:", e);
-                    }
+            const modal = document.getElementById('public-wipe-modal');
+            const hintEl = document.getElementById('public-wipe-backup-hint');
+            if (!modal || !hintEl) return;
 
-                    const currentTheme = appState.theme || 'dark';
-                    const currentFontSize = appState.fontSize || 'md';
-                    appState = JSON.parse(JSON.stringify(defaultState));
-                    appState.schoolInfo = getDefaultSchoolInfo();
-                    appState.theme = currentTheme;
-                    appState.fontSize = currentFontSize;
-                    appState.anonymizeStudents = false;
+            // 統計目前是否有使用者實質建立或編輯的資料
+            const students = appState.students || [];
+            const validStudents = students.filter(s => (s.name || '').trim().length > 0);
+            const studentCount = validStudents.length;
 
-                    // 清空步驟 1 暫存狀態與 UI
-                    rawRows = [];
-                    headers = [];
-                    parsedData = [];
-                    headerRowIndex = 0;
-                    const csvInput = document.getElementById('csvFileInput');
-                    if (csvInput) csvInput.value = '';
-                    const fileNameDisplay = document.getElementById('fileNameDisplay');
-                    if (fileNameDisplay) fileNameDisplay.innerText = '尚未選擇檔案';
-                    const mappingSection = document.getElementById('mappingSection');
-                    if (mappingSection) mappingSection.classList.add('hidden');
-                    const step2Section = document.getElementById('step2Section');
-                    if (step2Section) step2Section.classList.add('hidden');
-                    const step3Section = document.getElementById('step3Section');
-                    if (step3Section) step3Section.classList.add('hidden');
-                    const contextMappingSection = document.getElementById('contextMappingSection');
-                    if (contextMappingSection) contextMappingSection.classList.add('hidden');
-                    const resultOutput = document.getElementById('resultOutput');
-                    if (resultOutput) resultOutput.value = '';
+            const logs = appState.logs || [];
+            const validLogs = logs.filter(l => (l.content || '').trim().length > 0);
+            const logCount = validLogs.length;
 
-                    applyStateToUI();
-                    renderStudentInputs();
-                    renderLogInputs();
-                    saveAndRender();
+            const hasRealData = studentCount > 0 || logCount > 0;
 
-                    showAlert("【安全清除成功】\n本機所有暫存資料與分析紀錄已全數徹底抹除，保障校園個資安全！");
-                },
-                null,
-                '<i class="fas fa-shield-halved text-red-500"></i> 公用電腦安全清空確認'
-            );
+            if (hasRealData) {
+                hintEl.innerHTML = `
+                    <div class="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <span>重要備份提醒</span>
+                    </div>
+                    <div class="leading-relaxed text-amber-900/90 dark:text-amber-200/90">
+                        偵測到本機目前存有 <strong>${studentCount} 位學生資料</strong> 與 <strong>${logCount} 堂課程規劃</strong>。若您日後在個人筆電或其他電腦仍需繼續編輯，<strong>強烈建議點擊「先備份 JSON 並清空」</strong>，系統會自動下載設定檔帶走（日後只需在步驟二點擊「匯入設定」即可完整還原）。
+                    </div>
+                `;
+            } else {
+                hintEl.innerHTML = `
+                    <div class="font-bold flex items-center gap-1.5 text-blue-700 dark:text-blue-300">
+                        <i class="fas fa-circle-info"></i>
+                        <span>貼心提醒</span>
+                    </div>
+                    <div class="leading-relaxed text-blue-900/90 dark:text-blue-200/90">
+                        若您日後在其他電腦還需要使用目前這份課程規劃，可選擇<strong>「先備份 JSON 並清空」</strong>將檔案保存帶走（日後只需點擊「匯入設定」即可還原）。
+                    </div>
+                `;
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closePublicWipeModal() {
+            const modal = document.getElementById('public-wipe-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function executePublicWipeWithBackup() {
+            exportJSON();
+            setTimeout(() => {
+                executeStorageWipe(true);
+            }, 300);
+        }
+
+        function executePublicWipeDirectly() {
+            executeStorageWipe(false);
+        }
+
+        function executeStorageWipe(hasBackedUp = false) {
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+            } catch (e) {
+                console.error("Storage clear error:", e);
+            }
+
+            const currentTheme = appState.theme || 'dark';
+            const currentFontSize = appState.fontSize || 'md';
+            appState = JSON.parse(JSON.stringify(defaultState));
+            appState.schoolInfo = getDefaultSchoolInfo();
+            appState.theme = currentTheme;
+            appState.fontSize = currentFontSize;
+            appState.anonymizeStudents = false;
+
+            // 清空步驟 1 暫存狀態與 UI
+            rawRows = [];
+            headers = [];
+            parsedData = [];
+            headerRowIndex = 0;
+            const csvInput = document.getElementById('csvFileInput');
+            if (csvInput) csvInput.value = '';
+            const fileNameDisplay = document.getElementById('fileNameDisplay');
+            if (fileNameDisplay) fileNameDisplay.innerText = '尚未選擇檔案';
+            const mappingSection = document.getElementById('mappingSection');
+            if (mappingSection) mappingSection.classList.add('hidden');
+            const step2Section = document.getElementById('step2Section');
+            if (step2Section) step2Section.classList.add('hidden');
+            const step3Section = document.getElementById('step3Section');
+            if (step3Section) step3Section.classList.add('hidden');
+            const contextMappingSection = document.getElementById('contextMappingSection');
+            if (contextMappingSection) contextMappingSection.classList.add('hidden');
+            const resultOutput = document.getElementById('resultOutput');
+            if (resultOutput) resultOutput.value = '';
+
+            applyStateToUI();
+            renderStudentInputs();
+            renderLogInputs();
+            saveAndRender();
+            closePublicWipeModal();
+
+            if (hasBackedUp) {
+                showAlert("【備份完成並安全清除】\n1. 課程設定 JSON 檔已自動下載儲存至您的電腦/隨身碟。\n2. 本機所有學生個資與暫存紀錄已徹底抹除，安全無虞！\n\n日後只需在步驟二點擊「匯入設定 (JSON)」即可無縫接續編輯。");
+            } else {
+                showAlert("【安全清除成功】\n本機所有暫存資料與分析紀錄已全數徹底抹除，保障校園個資安全！");
+            }
         }
 
         function confirmResetData() {
