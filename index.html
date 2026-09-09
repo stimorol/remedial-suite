@@ -299,6 +299,116 @@
         </div>
     </div>
 
+    <!-- ======================= 帶入步驟二：教學目標與學生名單快選確認 Modal ======================= -->
+    <div id="sync-students-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50 transition-opacity">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 sm:p-6 max-w-xl w-full shadow-2xl transition-all scale-100 space-y-4 max-h-[90vh] flex flex-col">
+            <!-- 標題 -->
+            <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                        <i class="fas fa-users-gear text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-gray-900 dark:text-white">同步至步驟 2 課程規劃表</h3>
+                        <p class="text-[11px] text-gray-500 dark:text-gray-400">已自動解析教學目標與受測學生名單，請確認入班名冊</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeSyncStudentsModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-sm p-1 rounded-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- 內容滾動區 -->
+            <div class="overflow-y-auto custom-scrollbar space-y-3.5 pr-1 text-xs">
+                <!-- 目標統計摘要 -->
+                <div class="bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 rounded-lg p-2.5 flex items-center justify-between">
+                    <span class="text-blue-900 dark:text-blue-300 font-medium">
+                        <i class="fas fa-bullseye mr-1.5 text-blue-600 dark:text-blue-400"></i>預計同步教學目標：
+                    </span>
+                    <span id="sync-goals-count-badge" class="font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">共 0 項</span>
+                </div>
+
+                <!-- 學生名單核取區 -->
+                <div class="space-y-2">
+                    <div class="flex flex-wrap items-center justify-between gap-1.5">
+                        <label class="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+                            <i class="fas fa-user-graduate text-emerald-600 dark:text-emerald-400"></i>
+                            <span>勾選入班學生名單（偵測到 <span id="sync-detected-student-count">0</span> 位）：</span>
+                        </label>
+                        <div class="flex items-center gap-1">
+                            <button type="button" onclick="toggleAllSyncStudents(true)" class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium text-[11px] transition">全選</button>
+                            <button type="button" onclick="toggleAllSyncStudents(false)" class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium text-[11px] transition">全不選</button>
+                            <button type="button" onclick="filterSyncStudentsByError(2)" class="px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/50 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-medium text-[11px] transition">錯 2 題↑</button>
+                        </div>
+                    </div>
+
+                    <!-- 學生多選清單容器 -->
+                    <div id="sync-students-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-2 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <!-- 動態插入 -->
+                    </div>
+
+                    <!-- 手動補充學生快速輸入 -->
+                    <div class="flex gap-2 items-center pt-1">
+                        <input type="text" id="sync-extra-student-input" placeholder="欲手動補充姓名 (以逗號或空格分隔多位)..." class="flex-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-blue-500 outline-none">
+                        <button type="button" onclick="addExtraSyncStudents()" class="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-xs transition shrink-0 flex items-center gap-1">
+                            <i class="fas fa-plus"></i> 加入名單
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 模式設定與資安選項 -->
+                <div class="space-y-2 pt-1 border-t border-gray-100 dark:border-gray-700">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gray-50 dark:bg-gray-900/40 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <span class="font-bold text-gray-700 dark:text-gray-300">名冊帶入方式：</span>
+                        <div class="flex items-center gap-4">
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" name="syncStudentMode" value="replace" checked class="text-blue-600 focus:ring-blue-500">
+                                <span>取代目前名冊</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" name="syncStudentMode" value="append" class="text-blue-600 focus:ring-blue-500">
+                                <span>追加至現有名冊</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5 text-gray-700 dark:text-gray-300">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="sync-opt-mask" checked class="rounded text-amber-600 focus:ring-amber-500">
+                            <span>同時啟動「學生姓名去識別化遮罩」（如：李○華、王○）保護個資</span>
+                        </label>
+                        <label id="sync-opt-clear-demo-wrapper" class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="sync-opt-clear-demo" checked class="rounded text-blue-600 focus:ring-blue-500">
+                            <span>一併清空步驟二的預設示範課堂日誌（方便直接點擊「自動排課」生成課表）</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 資安提示聲明 -->
+                <div class="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-2.5 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+                    <i class="fas fa-shield-halved text-emerald-600 dark:text-emerald-400 text-xs mt-0.5 shrink-0"></i>
+                    <div>
+                        <strong>純前端資安保護：</strong>學生姓名僅留存於本機瀏覽器暫存（LocalStorage），絕不回傳任何外部伺服器。公用電腦請於離開前使用右上角「安全清空暫存」。
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按鈕列 -->
+            <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-gray-100 dark:border-gray-700 shrink-0">
+                <button type="button" onclick="closeSyncStudentsModal()" class="w-full sm:w-auto px-3.5 py-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition font-medium">
+                    取消
+                </button>
+                <button type="button" onclick="executeSyncOnlyGoals()" class="w-full sm:w-auto px-3 py-2 text-xs font-semibold bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg transition flex items-center justify-center gap-1.5">
+                    <span>僅帶入教學目標 (不帶入學生)</span>
+                </button>
+                <button type="button" onclick="executeSyncWithStudents()" class="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+                    <i class="fas fa-check-circle"></i>
+                    <span id="sync-confirm-btn-label">確定帶入 (目標 + 學生)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ======================= 課本單元檢視與自訂 Modal ======================= -->
     <div id="custom-units-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50 transition-opacity">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 max-w-lg w-full shadow-2xl transition-all max-h-[90vh] flex flex-col">
@@ -417,7 +527,7 @@
                             <span class="text-xs text-blue-600 dark:text-blue-400">已自動偵測欄位，若有誤可手動微調</span>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs mb-3">
                             <!-- 數學科專用 -->
                             <div class="field-math">
                                 <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1">學習內容 / 指標</label>
@@ -442,6 +552,14 @@
                             <div>
                                 <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1">答錯人數 / 未通過(X)</label>
                                 <select id="valueColSelect" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 outline-none"></select>
+                            </div>
+                            <!-- 共同：受測學生名單 (選填) -->
+                            <div>
+                                <label class="font-semibold text-gray-700 dark:text-gray-300 block mb-1 flex items-center justify-between">
+                                    <span>學生姓名 / 名冊 (選填)</span>
+                                    <span class="text-[10px] font-normal text-emerald-600 dark:text-emerald-400"><i class="fas fa-shield-halved"></i> 本機資安保護</span>
+                                </label>
+                                <select id="studentColSelect" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 outline-none"></select>
                             </div>
                         </div>
 
@@ -967,8 +1085,13 @@
         const chiContentColSelect = document.getElementById('chiContentColSelect');
         const focusColSelect = document.getElementById('focusColSelect');
         const valueColSelect = document.getElementById('valueColSelect');
+        const studentColSelect = document.getElementById('studentColSelect');
         const dataPreview = document.getElementById('dataPreview');
         const confirmMappingBtn = document.getElementById('confirmMappingBtn');
+
+        let extractedAllStudentsMap = {}; // name -> { name, totalErrors, questionIds: [] }
+        let currentSyncGoalsText = "";
+        let currentSyncCandidates = [];
 
         const step2Section = document.getElementById('step2Section');
         const step3Section = document.getElementById('step3Section');
@@ -1066,6 +1189,29 @@
             detectAndSetupMapping();
         }
 
+        function parseStudentsFromCell(cellStr) {
+            if (!cellStr) return [];
+            const tokens = cellStr.split(/[\n\r,，、;；/|\t]+/);
+            const students = [];
+            tokens.forEach(rawToken => {
+                const subTokens = rawToken.trim().split(/\s{1,}/);
+                subTokens.forEach(sub => {
+                    let t = sub.trim();
+                    t = t.replace(/[\(（\[【][^\)）\]】]*[\)）\]】]/g, '').trim();
+                    t = t.replace(/^[\d\(\)\[\]（）號#\.\-\s]+/, '').trim();
+                    t = t.replace(/[\d\(\)\[\]（）號#\.\-\s]+$/, '').trim();
+                    
+                    const noise = ['無', '全對', '全錯', '通過', '未通過', '答對', '答錯', '學生', '姓名', '人數', '總計', '合計', 'none', 'null', 'na', 'n/a', '無未通過學生', '全班通過', '未測驗', '缺考'];
+                    if (t.length >= 2 && t.length <= 15 && !noise.includes(t.toLowerCase()) && !/^\d+$/.test(t)) {
+                        if (!students.includes(t)) {
+                            students.push(t);
+                        }
+                    }
+                });
+            });
+            return students;
+        }
+
         function detectAndSetupMapping() {
             headerRowIndex = 0;
             for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
@@ -1089,9 +1235,12 @@
                 headers.push(combined);
             }
 
-            const selects = [contentColSelect, valueColSelect, qNumColSelect, chiContentColSelect, focusColSelect];
+            const selects = [contentColSelect, valueColSelect, qNumColSelect, chiContentColSelect, focusColSelect, studentColSelect];
             selects.forEach(sel => {
                 sel.innerHTML = "";
+                if (sel === studentColSelect) {
+                    sel.add(new Option("(無 / 不帶入學生名單)", "-1"));
+                }
                 headers.forEach((h, idx) => {
                     let label = h.length > 20 ? h.substring(0, 20) + "..." : h;
                     sel.add(new Option(`[欄位 ${idx + 1}] ${label}`, idx));
@@ -1139,6 +1288,14 @@
 
             if (vIdx !== -1) valueColSelect.value = vIdx;
 
+            // 學生名冊/姓名欄位自動猜測
+            let sIdx = findIdx(["答錯學生", "未通過學生", "受測學生", "受試學生", "學生姓名", "學生名冊", "學生", "姓名", "名冊", "名單"]);
+            if (sIdx !== -1 && sIdx !== vIdx) {
+                studentColSelect.value = sIdx;
+            } else {
+                studentColSelect.value = "-1";
+            }
+
             if (currentSubject === 'math') {
                 let cIdx = findIdx(["內容", "指標", "基本學習內容"]);
                 if (cIdx !== -1) contentColSelect.value = cIdx;
@@ -1161,22 +1318,30 @@
             let html = "";
             let startPreviewRow = headerRowIndex + 1;
             let previewRows = Math.min(startPreviewRow + 3, rawRows.length);
+            const sCol = parseInt(studentColSelect.value);
 
             for (let i = startPreviewRow; i < previewRows; i++) {
                 const row = rawRows[i];
                 const vVal = row[valueColSelect.value] || "-";
+                let sSnippet = "";
+                if (sCol >= 0) {
+                    const sRaw = row[sCol] || "";
+                    const sClean = sRaw.length > 15 ? sRaw.substring(0, 15) + "..." : sRaw;
+                    sSnippet = ` | 學生="${sClean || '無'}"`;
+                }
+
                 if (currentSubject === 'math') {
                     const cVal = row[contentColSelect.value] || "-";
-                    html += `第 ${i + 1} 列: 內容="${cVal.substring(0, 15)}..." | 答錯人數="${vVal}"\n`;
+                    html += `第 ${i + 1} 列: 內容="${cVal.substring(0, 15)}..." | 答錯人數="${vVal}"${sSnippet}\n`;
                 } else if (currentSubject === 'chinese') {
                     const qVal = row[qNumColSelect.value] || "-";
                     const cVal = row[chiContentColSelect.value] || "-";
                     const fVal = row[focusColSelect.value] || "-";
-                    html += `第 ${i + 1} 列: 題號="${qVal}" | 內容="${cVal.substring(0, 8)}..." | 重點="${fVal.substring(0, 8)}..." | 答錯="${vVal}"\n`;
+                    html += `第 ${i + 1} 列: 題號="${qVal}" | 內容="${cVal.substring(0, 8)}..." | 重點="${fVal.substring(0, 8)}..." | 答錯="${vVal}"${sSnippet}\n`;
                 } else if (currentSubject === 'english') {
                     const qVal = row[qNumColSelect.value] || "-";
                     const fVal = row[focusColSelect.value] || "-";
-                    html += `第 ${i + 1} 列: 題號="${qVal}" | 重點="${fVal.substring(0, 15)}..." | 答錯="${vVal}"\n`;
+                    html += `第 ${i + 1} 列: 題號="${qVal}" | 重點="${fVal.substring(0, 15)}..." | 答錯="${vVal}"${sSnippet}\n`;
                 }
             }
             dataPreview.textContent = html;
@@ -1185,11 +1350,13 @@
         // 確認並分析
         confirmMappingBtn.addEventListener('click', () => {
             parsedData = [];
+            extractedAllStudentsMap = {};
             const vIdx = parseInt(valueColSelect.value);
             const mathCIdx = parseInt(contentColSelect.value);
             const qNumIdx = parseInt(qNumColSelect.value);
             const chiCIdx = parseInt(chiContentColSelect.value);
             const focusIdx = parseInt(focusColSelect.value);
+            const studentIdx = parseInt(studentColSelect.value);
 
             for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
                 const row = rawRows[i];
@@ -1201,6 +1368,18 @@
                 let errorCount = parseInt(valStr.replace(/[^\d]/g, '')) || 0;
                 let isZeroError = (valStr.trim() === "" || errorCount === 0);
 
+                // 解析該列學生姓名
+                let rowStudents = [];
+                if (studentIdx >= 0 && row[studentIdx]) {
+                    rowStudents = parseStudentsFromCell(row[studentIdx]);
+                }
+
+                // 若答錯人數為 0 但列出了學生，以名單人數為準
+                if (errorCount === 0 && rowStudents.length > 0) {
+                    errorCount = rowStudents.length;
+                    isZeroError = false;
+                }
+
                 let item = {
                     id: i,
                     errorCount: errorCount,
@@ -1210,8 +1389,18 @@
                     code: "",
                     qNum: 0,
                     chiContent: "",
-                    focus: ""
+                    focus: "",
+                    students: rowStudents
                 };
+
+                // 統計全域學生資料
+                rowStudents.forEach(stName => {
+                    if (!extractedAllStudentsMap[stName]) {
+                        extractedAllStudentsMap[stName] = { name: stName, totalErrors: 0, questionIds: [] };
+                    }
+                    extractedAllStudentsMap[stName].totalErrors++;
+                    extractedAllStudentsMap[stName].questionIds.push(i);
+                });
 
                 if (currentSubject === 'math') {
                     const content = row[mathCIdx] || "";
@@ -1237,7 +1426,12 @@
             renderTable();
 
             const validCount = parsedData.filter(p => !p.isZeroError).length;
-            statsDisplay.textContent = `分析結果：共 ${validCount} 筆有錯資料`;
+            const detectedStudentCount = Object.keys(extractedAllStudentsMap).length;
+            if (detectedStudentCount > 0) {
+                statsDisplay.innerHTML = `分析結果：共 <strong>${validCount}</strong> 筆錯題 <span class="mx-1 opacity-50">|</span> 偵測到 <strong>${detectedStudentCount}</strong> 位受測學生`;
+            } else {
+                statsDisplay.textContent = `分析結果：共 ${validCount} 筆錯題`;
+            }
 
             step2Section.classList.remove('hidden');
             step3Section.classList.remove('hidden');
@@ -1312,6 +1506,9 @@
                 tdError.textContent = item.errorCount;
                 if (item.errorCount > 0) {
                     tdError.className += " text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30";
+                }
+                if (item.students && item.students.length > 0) {
+                    tdError.title = `答錯學生 (${item.students.length} 位): ${item.students.join('、')}`;
                 }
                 tr.appendChild(tdError);
                 tableBody.appendChild(tr);
@@ -1776,7 +1973,7 @@
             XLSX.writeFile(wb, `學習扶助分析佐證表_${currentSubject}_${timestamp}.xlsx`);
         }
 
-        // 雙系統核心串聯：一鍵將目標注入 Course Planner
+        // 雙系統核心串聯：一鍵將目標與學生名單注入 Course Planner
         function syncGoalsToPlanner() {
             let goalsText = resultOutput.value.trim();
             if (!goalsText) {
@@ -1790,56 +1987,254 @@
                 goalsText = resultOutput.value.trim();
             }
 
-            const applySync = (shouldClearLogs = false) => {
-                // 同步科目與目標
-                appState.objectives = goalsText;
-                document.getElementById('objectives').value = goalsText;
+            currentSyncGoalsText = goalsText;
 
-                // 若選擇一併清空示範日誌
-                if (shouldClearLogs) {
-                    appState.logs = [];
+            // 檢查是否從 CSV 中偵測到學生名單
+            const detectedStudents = Object.values(extractedAllStudentsMap);
+            if (detectedStudents.length > 0) {
+                openSyncStudentsModal(goalsText);
+                return;
+            }
+
+            // 若 CSV 無學生名單，執行原有同步流程
+            executeDirectSync(goalsText);
+        }
+
+        function openSyncStudentsModal(goalsText) {
+            currentSyncGoalsText = goalsText;
+            const modal = document.getElementById('sync-students-modal');
+            const countBadge = document.getElementById('sync-goals-count-badge');
+            const detectedCountSpan = document.getElementById('sync-detected-student-count');
+            const demoOptionWrapper = document.getElementById('sync-opt-clear-demo-wrapper');
+            const clearDemoCheckbox = document.getElementById('sync-opt-clear-demo');
+
+            const goalLines = goalsText.split('\n').filter(l => l.trim().length > 0);
+            countBadge.textContent = `共 ${goalLines.length} 項`;
+
+            if (isDemoState() && appState.logs && appState.logs.length > 0) {
+                demoOptionWrapper.classList.remove('hidden');
+                clearDemoCheckbox.checked = true;
+            } else {
+                demoOptionWrapper.classList.add('hidden');
+                clearDemoCheckbox.checked = false;
+            }
+
+            // 分析勾選題目與學生錯題的關聯性
+            const selectedItems = parsedData.filter(item => item.selected && !item.isZeroError);
+            const hasSelectedItems = selectedItems.length > 0;
+
+            const candidateMap = {};
+            Object.values(extractedAllStudentsMap).forEach(st => {
+                candidateMap[st.name] = {
+                    name: st.name,
+                    totalErrors: st.totalErrors,
+                    selectedErrors: 0,
+                    checked: true
+                };
+            });
+
+            if (hasSelectedItems) {
+                selectedItems.forEach(item => {
+                    (item.students || []).forEach(stName => {
+                        if (candidateMap[stName]) {
+                            candidateMap[stName].selectedErrors++;
+                        }
+                    });
+                });
+                // 有選題目時，若學生在所選題目錯題數 > 0 則預設勾選，否則預設不勾選
+                Object.values(candidateMap).forEach(cand => {
+                    cand.checked = (cand.selectedErrors > 0);
+                });
+            }
+
+            currentSyncCandidates = Object.values(candidateMap).sort((a, b) => {
+                if (hasSelectedItems) {
+                    if (b.selectedErrors !== a.selectedErrors) return b.selectedErrors - a.selectedErrors;
+                }
+                return b.totalErrors - a.totalErrors;
+            });
+
+            detectedCountSpan.textContent = currentSyncCandidates.length;
+            renderSyncStudentCheckboxes();
+            updateSyncConfirmBtnLabel();
+
+            modal.classList.remove('hidden');
+        }
+
+        function renderSyncStudentCheckboxes() {
+            const container = document.getElementById('sync-students-container');
+            container.innerHTML = '';
+            const hasSelectedItems = parsedData.some(item => item.selected && !item.isZeroError);
+
+            currentSyncCandidates.forEach((cand, idx) => {
+                const label = document.createElement('label');
+                label.className = "flex items-center justify-between p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer text-xs transition shadow-2xs select-none";
+                
+                let countBadgeHtml = "";
+                if (hasSelectedItems && cand.selectedErrors > 0) {
+                    countBadgeHtml = `<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300 font-semibold shrink-0">錯 ${cand.selectedErrors} 題</span>`;
+                } else if (cand.totalErrors > 0) {
+                    countBadgeHtml = `<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 font-medium shrink-0">共錯 ${cand.totalErrors} 題</span>`;
                 }
 
-                // 自動適配 Planner 的科目表格樣板
-                if (currentSubject === 'chinese') {
-                    appState.format = 'chinese';
-                } else if (currentSubject === 'english') {
-                    appState.format = 'english';
-                } else if (currentSubject === 'math') {
-                    // 若原本不是數學，預設為學期中學扶班
-                    if (!appState.format.startsWith('math')) {
-                        appState.format = 'math_semester_remedial';
+                label.innerHTML = `
+                    <div class="flex items-center gap-2 min-w-0 pr-1">
+                        <input type="checkbox" data-index="${idx}" ${cand.checked ? 'checked' : ''} onchange="onSyncStudentCheckboxChange(${idx}, this.checked)" class="student-sync-checkbox rounded text-blue-600 focus:ring-blue-500 shrink-0 cursor-pointer">
+                        <span class="font-bold text-gray-800 dark:text-gray-100 truncate">${cand.name}</span>
+                    </div>
+                    ${countBadgeHtml}
+                `;
+                container.appendChild(label);
+            });
+        }
+
+        function onSyncStudentCheckboxChange(index, checked) {
+            if (currentSyncCandidates[index]) {
+                currentSyncCandidates[index].checked = checked;
+            }
+            updateSyncConfirmBtnLabel();
+        }
+
+        function toggleAllSyncStudents(checked) {
+            currentSyncCandidates.forEach(cand => cand.checked = checked);
+            renderSyncStudentCheckboxes();
+            updateSyncConfirmBtnLabel();
+        }
+
+        function filterSyncStudentsByError(minErrors) {
+            const hasSelectedItems = parsedData.some(item => item.selected && !item.isZeroError);
+            currentSyncCandidates.forEach(cand => {
+                const err = hasSelectedItems ? cand.selectedErrors : cand.totalErrors;
+                cand.checked = (err >= minErrors);
+            });
+            renderSyncStudentCheckboxes();
+            updateSyncConfirmBtnLabel();
+        }
+
+        function addExtraSyncStudents() {
+            const input = document.getElementById('sync-extra-student-input');
+            const val = input.value.trim();
+            if (!val) return;
+            const names = parseStudentsFromCell(val);
+            if (names.length === 0) {
+                showAlert("請輸入有效的學生姓名。");
+                return;
+            }
+            names.forEach(name => {
+                const existing = currentSyncCandidates.find(c => c.name === name);
+                if (existing) {
+                    existing.checked = true;
+                } else {
+                    currentSyncCandidates.unshift({
+                        name: name,
+                        totalErrors: 0,
+                        selectedErrors: 0,
+                        checked: true
+                    });
+                }
+            });
+            input.value = "";
+            document.getElementById('sync-detected-student-count').textContent = currentSyncCandidates.length;
+            renderSyncStudentCheckboxes();
+            updateSyncConfirmBtnLabel();
+        }
+
+        function updateSyncConfirmBtnLabel() {
+            const checkedCount = currentSyncCandidates.filter(c => c.checked).length;
+            const label = document.getElementById('sync-confirm-btn-label');
+            if (label) {
+                label.textContent = `確定帶入 (目標 + ${checkedCount} 位學生)`;
+            }
+        }
+
+        function closeSyncStudentsModal() {
+            document.getElementById('sync-students-modal').classList.add('hidden');
+        }
+
+        function executeSyncWithStudents() {
+            const checkedStudents = currentSyncCandidates.filter(c => c.checked);
+            const mode = document.querySelector('input[name="syncStudentMode"]:checked')?.value || 'replace';
+            const enableMask = document.getElementById('sync-opt-mask')?.checked;
+            const clearDemoLogs = document.getElementById('sync-opt-clear-demo')?.checked;
+
+            if (mode === 'replace' || isDemoState()) {
+                if (checkedStudents.length > 0) {
+                    appState.students = checkedStudents.map(c => ({ name: c.name, score1: "", score2: "" }));
+                }
+            } else {
+                const existingNames = new Set((appState.students || []).map(s => (s.name || '').trim()));
+                checkedStudents.forEach(c => {
+                    if (!existingNames.has(c.name)) {
+                        appState.students.push({ name: c.name, score1: "", score2: "" });
                     }
+                });
+            }
+
+            if (enableMask) {
+                appState.maskStudents = true;
+                const toggle = document.getElementById('toggleAnonymize');
+                if (toggle) toggle.checked = true;
+            }
+
+            applySyncState(currentSyncGoalsText, clearDemoLogs);
+            closeSyncStudentsModal();
+
+            const studentCount = checkedStudents.length;
+            showAlert(`已成功將教學目標與 ${studentCount} 位受測學生帶入步驟 2 課程規劃表！\n\n您可以在左側微調名冊與成績，右側已自動生成最新 A4 預覽。`);
+        }
+
+        function executeSyncOnlyGoals() {
+            const clearDemoLogs = document.getElementById('sync-opt-clear-demo')?.checked;
+            applySyncState(currentSyncGoalsText, clearDemoLogs);
+            closeSyncStudentsModal();
+            showAlert("已成功將教學目標同步至步驟 2 課程規劃表。");
+        }
+
+        function applySyncState(goalsText, shouldClearLogs) {
+            appState.objectives = goalsText;
+            document.getElementById('objectives').value = goalsText;
+
+            if (shouldClearLogs) {
+                appState.logs = [];
+            }
+
+            if (currentSubject === 'chinese') {
+                appState.format = 'chinese';
+            } else if (currentSubject === 'english') {
+                appState.format = 'english';
+            } else if (currentSubject === 'math') {
+                if (!appState.format.startsWith('math')) {
+                    appState.format = 'math_semester_remedial';
                 }
-                document.getElementById('formatSelect').value = appState.format;
-                updateSemesterOptions();
-                updateTextbookPublisherUI();
+            }
+            document.getElementById('formatSelect').value = appState.format;
+            updateSemesterOptions();
+            updateTextbookPublisherUI();
 
-                // 儲存並渲染
-                saveAndRender();
-                renderLogInputs();
-                updateDemoBannerUI();
+            applyStateToUI();
+            renderStudentInputs();
+            renderLogInputs();
+            saveAndRender();
+            updateDemoBannerUI();
+            switchMainTab('planner');
+        }
 
-                // 平滑切換至 Planner 分頁
-                switchMainTab('planner');
-            };
-
-            // 智慧防呆：若當前步驟二仍有示範日誌，詢問是否一併清空
+        function executeDirectSync(goalsText) {
             if (isDemoState() && appState.logs && appState.logs.length > 0) {
                 showConfirm(
                     "教學目標已成功重組！\n\n系統偵測到步驟二仍留有預設的示範課堂日誌。\n是否一併清空舊示範日誌，以便直接在步驟二使用「自動排課」生成您的專屬課表？",
                     () => {
-                        applySync(true);
+                        applySyncState(goalsText, true);
                         showAlert("已成功帶入教學目標並清空舊示範日誌！\n您現在可直接點擊「自動排課」產生最新進度。");
                     },
                     () => {
-                        applySync(false);
+                        applySyncState(goalsText, false);
                         showAlert("已成功將教學目標同步至課程規劃表。");
                     },
                     '<i class="fas fa-check-circle text-emerald-500"></i> 目標帶入成功'
                 );
             } else {
-                applySync(false);
+                applySyncState(goalsText, false);
                 showAlert("已成功將教學目標同步至課程規劃表。\n\n您可以在左側微調學生名單與日誌，右側已自動生成最新的 A4 預覽。");
             }
         }
